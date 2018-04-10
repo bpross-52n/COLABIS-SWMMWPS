@@ -7,6 +7,7 @@
 library(RCurl)
 
 library(XML)
+library(swmmr)
 
 
 url <- "http://colabis.dev.52north.org/wps/WebProcessingService"
@@ -73,13 +74,82 @@ t2 <- unlist(strsplit(t,'\n'))
 # Format timeStamp: YYMMDDhhmm
 # Format Regendatei: N_ED	2005 02 02 10 15	0.1
 # -> SWMM-Manual: each line of the file contains the station ID, year, month,  day,  hour,  minute,  and  non-zero  precipitation  reading,  all  separated  by  one  or more spaces
+
+rain_data <- matrix(nrow=(length(t2)-1), ncol=7)
+rain_data[,1] <- "N_ED   "
+for(i in 2:length(t2)){
+  rain_data[(i-1),2] <- as.character(as.numeric(substr(unlist(strsplit(t2[i],','))[5],1,2))+2000)
+  rain_data[(i-1),3] <- substr(unlist(strsplit(t2[i],','))[5],3,4)
+  rain_data[(i-1),4] <- substr(unlist(strsplit(t2[i],','))[5],5,6)
+  rain_data[(i-1),5] <- substr(unlist(strsplit(t2[i],','))[5],7,8)
+  rain_data[(i-1),6] <- paste0(substr(unlist(strsplit(t2[i],','))[5],9,10),"   ")
+  rain_data[(i-1),7] <- unlist(strsplit(t2[i],','))[4]
+}
+rain_data[,7] <- 0.1
+rain_file <- paste0("rain_", paste(rain_data[1,2:6], collapse="-"), "_",
+                    paste(rain_data[nrow(rain_data),2:6], collapse="-"), ".dat")
+rain_file <- "test_rain.dat"
+write.table(rain_data, rain_file,
+            row.names=F, col.names=F, quote=F)
 # Regenwerte = 0 ???
+# bei mehreren Stationen muss Stationsname (erste Spalte) angepasst werden!
+
+
+# Regendatei im .inp-File aendern (entsprechend Dateiname oben)
+raw_inp <- readLines("eschdorf_v6_20141208.inp")
+p1 <- "FILE       \".*\"       N_ED"
+r1 <- paste0("FILE       \"", rain_file, "\"       N_ED")
+#r1 <- paste0("FILE       \"", "ED_N_test.dat", "\"       N_ED")
+n1 <- gsub(pattern = p1, replace = r1, x = raw_inp)
+
+
+# Start-/Endzeit fuer Simulation im .inp-File aendern
+start_date_sim <- paste(rain_data[1,4:2], collapse="/")
+p2 <- "START_DATE           .*"
+r2 <- paste0("START_DATE           ", start_date_sim)
+n2 <- gsub(pattern = p2, replace = r2, x = n1)
+
+start_time_sim <- trimws(paste(rain_data[1,5:6], collapse=":"), "right")
+p3 <- "START_TIME           .*"
+r3 <- paste0("START_TIME           ", start_time_sim)
+n3 <- gsub(pattern = p3, replace = r3, x = n2)
+
+end_date_sim <- paste(rain_data[nrow(rain_data),4:2], collapse="/")
+p4 <- "END_DATE             .*"
+r4 <- paste0("END_DATE             ", end_date_sim)
+n4 <- gsub(pattern = p4, replace = r4, x = n3)
+
+end_time_sim <- trimws(paste(rain_data[nrow(rain_data),5:6], collapse=":"), "right")
+p5 <- "END_TIME             .*"
+r5 <- paste0("END_TIME             ", end_time_sim)
+n5 <- gsub(pattern = p5, replace = r5, x = n4)
+
+
+# neue .inp-Datei speichern
+writeLines(n5, "SWMM_project_new.inp")
+
+
+
+# SWMM aufrufen, .out-Datei erstellen
+setwd(getwd())
+binary <- run_swmm(inp = "SWMM_project_new.inp")
+# exec = ... -> default: "C:/Program Files (x86)/EPA SWMM 5.1/swmm5.exe"
+
+
+
+
+
 
 
 
 # INPUT ALS LOKALE REFERENZ ???
 # file://D:/BueRO/SHK_TUD/COLABIS/WPS-R_XML/sample-points-wgs84.zip im Web-Client
+# oder file://localhost/... bzw. file://localhost:8080/...
 # -> org.n52.wps.server.ExceptionReport: Error occured while receiving the complexReferenceURL: inputID: features | dataURL: file://D:/BueRO/SHK_TUD/COLABIS/WPS-R_XML/sample-points-wgs84.zip
+# http://localhost:8080/wps/R/resources/SWMM/sample-points-wgs84.zip
+# -> java.lang.IndexOutOfBoundsException: Index: 0, Size: 0
+# Zugriff auf lokale Dateien mit javascript nicht möglich (?)
+
 
 # INPUT ALS LITERAL ???
 # -> xml/gml erstellen...
