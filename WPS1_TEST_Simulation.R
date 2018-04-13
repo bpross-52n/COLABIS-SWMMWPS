@@ -6,13 +6,16 @@
 #install.packages("RCurl")
 library(RCurl)
 
-library(XML)
+#library(XML)
 library(swmmr)
 
 
 url <- "http://colabis.dev.52north.org/wps/WebProcessingService"
 
 # REQUEST MIT DEFAULT-WERTEN AUS WEB-CLIENT
+# http://geoprocessing.demo.52north.org:8080/data/sample-points-wgs84.zip
+
+# REQUEST MIT ESCHDORF-SHAPEFILE (https://colabis.de/data/COLABIS_eschdorf_4326.zip)
 xml_request <- '<?xml version="1.0" encoding="UTF-8"?>
 <wps:Execute service="WPS" version="1.0.0" mode="sync"
 xmlns:wps="http://www.opengis.net/wps/1.0.0" 
@@ -26,7 +29,7 @@ http://schemas.opengis.net/wps/1.0.0/wpsExecute_request.xsd">
 <wps:DataInputs>
 <wps:Input>
 <ows:Identifier>features</ows:Identifier>
-<wps:Reference xlink:href="http://geoprocessing.demo.52north.org:8080/data/sample-points-wgs84.zip" mimeType="application/x-zipped-shp">
+<wps:Reference xlink:href="https://colabis.de/data/COLABIS_eschdorf_4326.zip" mimeType="application/x-zipped-shp">
 </wps:Reference>
 </wps:Input>
 
@@ -40,7 +43,7 @@ http://schemas.opengis.net/wps/1.0.0/wpsExecute_request.xsd">
 <wps:Input>
 <ows:Identifier>maxNumberOfDatasets</ows:Identifier>
 <wps:Data>
-<wps:LiteralData>16</wps:LiteralData>
+<wps:LiteralData>12</wps:LiteralData>
 </wps:Data>
 </wps:Input>
 
@@ -74,24 +77,35 @@ t2 <- unlist(strsplit(t,'\n'))
 # Format timeStamp: YYMMDDhhmm
 # Format Regendatei: N_ED	2005 02 02 10 15	0.1
 # -> SWMM-Manual: each line of the file contains the station ID, year, month,  day,  hour,  minute,  and  non-zero  precipitation  reading,  all  separated  by  one  or more spaces
-
 rain_data <- matrix(nrow=(length(t2)-1), ncol=7)
 rain_data[,1] <- "N_ED   "
 for(i in 2:length(t2)){
-  rain_data[(i-1),2] <- as.character(as.numeric(substr(unlist(strsplit(t2[i],','))[5],1,2))+2000)
-  rain_data[(i-1),3] <- substr(unlist(strsplit(t2[i],','))[5],3,4)
-  rain_data[(i-1),4] <- substr(unlist(strsplit(t2[i],','))[5],5,6)
-  rain_data[(i-1),5] <- substr(unlist(strsplit(t2[i],','))[5],7,8)
-  rain_data[(i-1),6] <- paste0(substr(unlist(strsplit(t2[i],','))[5],9,10),"   ")
-  rain_data[(i-1),7] <- unlist(strsplit(t2[i],','))[4]
+  # Datum/Zeit in GMT (+2h = CEST) -> anpassen ???
+  rain_data[(i-1),2] <- as.character(as.numeric(substr(unlist(strsplit(t2[i],','))[5],1,2))+2000) # year
+  rain_data[(i-1),3] <- substr(unlist(strsplit(t2[i],','))[5],3,4) # month
+  rain_data[(i-1),4] <- substr(unlist(strsplit(t2[i],','))[5],5,6) # day
+  rain_data[(i-1),5] <- substr(unlist(strsplit(t2[i],','))[5],7,8) # hour
+  rain_data[(i-1),6] <- paste0(substr(unlist(strsplit(t2[i],','))[5],9,10),"   ") # minute
+  rain_data[(i-1),7] <- unlist(strsplit(t2[i],','))[4] # rain value
 }
-rain_data[,7] <- 0.1
+
+
+# RADOLAN: Ausgabe (Datum/Zeit) in GMT -> umrechnen in CEST (+2h)
+ISOdatetime(year=as.numeric(rain_data[1,2]),
+            month=as.numeric(rain_data[1,3]), day=as.numeric(rain_data[1,4]),
+            hour=as.numeric(rain_data[1,5]), min=as.numeric(rain_data[1,6]), sec=0) + 2*60*60
+
+
+# Regenwerte = 0 ??? -> nicht erlaubt in SWMM-rainfile
+#rain_data[,7] <- 0.1
+rain_data <- rain_data[-which(rain_data[,7]==0),]
 rain_file <- paste0("rain_", paste(rain_data[1,2:6], collapse="-"), "_",
                     paste(rain_data[nrow(rain_data),2:6], collapse="-"), ".dat")
 rain_file <- "test_rain.dat"
 write.table(rain_data, rain_file,
             row.names=F, col.names=F, quote=F)
-# Regenwerte = 0 ???
+
+
 # bei mehreren Stationen muss Stationsname (erste Spalte) angepasst werden!
 
 
