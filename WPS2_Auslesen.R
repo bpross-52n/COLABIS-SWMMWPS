@@ -1,21 +1,45 @@
-# wps.des: id = WPS2_Auslesen, title = SWMM Binaerdatei auslesen,
-# abstract = liest von WPS1_Simulation erstellte out_Datei (in Resources-Directory) aus;
+# wps.des: id = COLABIS_WPS2_Auslesen, title = SWMM-Binaerdatei auslesen,
+# abstract = liest von COLABIS_WPS1_Simulation erstellte out-Datei aus;
 
 
-# wps.res: SWMM/eschdorf_v6_20141208.out;
-
+# wps.in: id = binary, type = string,
+# title = Name des out-File mit Dateiendung,
+# abstract = Ergebnis der SWMM-Simulation (WPS1) mit/ohne Strassenreinigung;
 
 # wps.in: id = method, type = string,
-# title = Methode,
-# abstract = MinMax / SingleNode / AllNodes;
+# title = Ausgabemodus (MinMax / SingleNode / AllNodes),
+# abstract = minimale/maximale Schadstoffkonzentration / Schadstoffkonzentrationen fuer bestimmten Knoten / Schadstoffkonzentrationen fuer alle Knoten;
 
 # wps.in: id = name, type = string,
-# title = Name des Objektes (Subcatchments / Knoten / Links),
-# abstract = Auswahl eines Subcatchments / Knotens / Links;
+# title = Name des Knoten,
+# abstract = Auswahl eines Knotens im SingleNode-/MinMax-Modus;
 
-# wps.in: id = var, type = integer,
-# title = Variable fuer gewaehlten Ergebnistyp bzw. Objekt,
-# abstract = Auswahl einer Variablen je nach Ergebnistyp bzw. Objekt;
+# wps.in: id = pollutant, type = string,
+# title = Name des Schadstoffes,
+# abstract = zum Beispiel CSB / NH4N;
+
+
+# Variablen fuer Testlauf in RStudio
+# wps.off;
+  binary <- "eschdorf_v6_20141208_new.out"
+  method <- "MinMax"
+  name <- "Out1"
+  pollutant <- "CSB"
+# wps.on;
+
+
+
+# Anzupassende Variablen (siehe Doku) ---------------------------------------------
+# Pfad zur .out-Datei (von WPS1_Simulation erstellt)
+inp_path <- "D:/BueRO/SHK_TUD/COLABIS/Outputs_Test"
+# Namen aller Knoten entsprechend [JUNCTIONS] und [OUTFALLS] im inp-File
+node_names <- c(1:6, 8, 10:12, 14:27, 29:51, 53:95, 97, 98, 100, 102, 104:296, 299:343, "Out1")
+# Namen der Schadstoffe in Codes umwandeln
+# Ausfuehren von read_out() ohne Angabe des Parameters vIndex zeigt verfuegbare Elemente
+#read_out(file=binary, iType=1, object_name=name)
+if(pollutant == "CSB"){var <- 7-1}
+if(pollutant == "NH4N"){var <- 8-1}
+# ---------------------------------------------------------------------------------
 
 
 
@@ -23,55 +47,51 @@
 library(swmmr)
 library(zoo)
 
-# Input-Variablen in Vektoren konvertieren
-res <- as.vector(1) # 0: Subcatchments / 1: Nodes / 2: Links / 4: System Variables
-name <- as.vector(name)
-var <- as.vector(var)
-method <- as.vector(method)
-binary <- "eschdorf_v6_20141208.out"
+
+# vollstaendiger Pfad zu .out-File
+binary <- paste0(inp_path,"/",binary)
 
 if(method == "MinMax" || method == "SingleNode"){
   
-  # .out-Datei auslesen entsprechend der Input-Variablen (1 Knoten)
-  list <- read_out(file=binary, iType=res, vIndex=var, object_name=name)
-  title <- names(list)
-  var_name <- names(list[[title]])
-  xts <- list[[1]][[1]]
+  # .out-Datei auslesen fuer 1 Knoten (name) und ausgewaehlten Schadstoff (pollutant bzw. var)
+  list <- read_out(file=binary, iType=1, vIndex=var, object_name=name)
+  title <- names(list) # Name des Knoten (vgl. name)
+  var_name <- names(list[[title]]) # Name des Schadstoffes (vgl. pollutant)
+  xts <- list[[1]][[1]] # xts-Objekt mit Schadstoffwerten
   
   # Ausgabe: csv-Datei erstellen
   if(method == "MinMax"){
-    values <- range(xts)
-    table <- paste0(title, "_", var_name, "_MinMax.csv")
-    write.zoo(values, file=table, sep=",",dec=".")
+    values <- range(xts) # Min-/Max-Werte
+    table <- paste0(title, "_", var_name, "_MinMax.csv") # Name des Output-File
+    write.table(values, file=table, sep=",",dec=".",
+                row.names=c("Min","Max"), col.names=F)
     
   } else if (method == "SingleNode"){
-    table <- paste0(title, "_", var_name, ".csv")
+    table <- paste0(title, "_", var_name, ".csv") # Name des Output-File
     write.zoo(xts, file=table, sep=",",dec=".")
   }
   
   
 } else if (method == "AllNodes"){
   
-  # Namen aller Knoten (!= Indizes im interaktiven Modus)
-  names <- c(1:6, 8, 10:12, 14:27, 29:51, 53:95, 97, 98,
-             100, 102, 104:296, 299:343, "Out1")
-  
-  # .out-Datei auslesen entsprechend der Input-Variablen (alle Knoten)
-  list <- read_out(file=binary, iType=res, object_name=names, vIndex=var)
-  title <- names(list)
-  var_name <- names(list[[title[1]]])
-  xts <- list[[1]][[1]]
-  for(i in 2:length(names)){
+  # .out-Datei auslesen fuer alle Knoten (node_names) und ausgewaehlten Schadstoff (pollutant bzw. var)
+  list <- read_out(file=binary, iType=1, object_name=node_names, vIndex=var)
+  title <- names(list) # Namen aller Knoten (vgl. node_names)
+  var_name <- names(list[[title[1]]]) # Name des Schadstoffes (vgl. pollutant)
+  xts <- list[[1]][[1]] # Zusammenfuehren der xts-Objekte mit Schadstoffwerten
+  for(i in 2:length(node_names)){
     xts <- merge(xts, list[[i]][[1]])
   }
-  colnames(xts) <- names
-  table <- paste0("AllNodes_", var_name, ".csv")
-  write.zoo(xts, file=table, sep=",",dec=".")
+  colnames(xts) <- node_names
+  
+  # Ausgabe: csv-Datei erstellen
+  table <- paste0("AllNodes_", var_name, ".csv") # Name des Output-File
+  write.zoo(xts, file=table, sep=",",dec=".") # Spalten = Knoten, Zeilen = Zeitschritte
   
 }
 
 
 
 # wps.out: id = table, type = text,
-# title = Tabelle (csv),
-# abstract = Werte der ausgewaehlten Variablen;
+# title = Ausgabetabelle (csv),
+# abstract = Werte des/der ausgewaehlten Knoten fuer ausgewaehlten Schadstoff;
