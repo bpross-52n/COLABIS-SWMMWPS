@@ -26,7 +26,7 @@
 # SWMM-Installationspfad
 swmm_path <- "C:/Program Files/EPA SWMM 5.1/swmm5.exe"
 # Pfad fuer Output-File (.out) -> wird von WPS2 angesteuert zum Auslesen
-out_path <- "c:/windows-support-files/swmm-output"
+out_path <- "c:/WPS-support-files/swmm-output"
 # Shapefile mit Position der Regen-Station (rain gauge) im SWMM-Projekt
 station <- "https://colabis.de/data/COLABIS_eschdorf_4326.zip"
 # Name der Regenstation (identisch mit Name im .inp-File)
