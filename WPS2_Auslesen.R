@@ -31,7 +31,7 @@
 
 # Anzupassende Variablen (siehe Doku) ---------------------------------------------
 # Pfad zur .out-Datei (von WPS1_Simulation erstellt)
-inp_path <- "D:/BueRO/SHK_TUD/COLABIS/Outputs_Test"
+inp_path <- "c:/WPS-support-files/swmm-output"
 # Namen aller Knoten entsprechend [JUNCTIONS] und [OUTFALLS] im inp-File
 node_names <- c(1:6, 8, 10:12, 14:27, 29:51, 53:95, 97, 98, 100, 102, 104:296, 299:343, "Out1")
 # Namen der Schadstoffe in Codes umwandeln
