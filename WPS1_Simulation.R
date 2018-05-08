@@ -2,7 +2,7 @@
 # abstract = Regendaten der vergangenen Stunde/n anfordern von DWD-Radar-Process-Service und SWMM-Simulation mit angepasstem inp-File ausführen;
 
 
-# wps.res: SWMM/SWMM_project_original.inp;
+# wps.res: SWMM/eschdorf_v6_20141208.inp;
 
 
 # wps.in: id = inp, type = string,
