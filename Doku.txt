@@ -26,11 +26,11 @@ WPS1_Simulation: R-Skript anpassen -> siehe Abschnitt 'Anzupassende Variablen' o
 - swmm_path: SWMM-Installationspfad
 - out_path: Pfad zum Ordner, in dem die binäre Output-Datei (.out) gespeichert wird (= Input für WPS2)
 - station: URL zu Shapefile mit Position der Regenstation (analog zu http://geoprocessing.demo.52north.org:8080/data/sample-points-wgs84.zip)
-- station_name: Name der Regenstation (muss identisch mit Name im .inp-File unter [RAINGAGES] sein!)
-Bemerkung: Abfragen der Regenwerte für >12 Stunden können zu einem Time-Out-Error in R durch getURL() führen
+Bemerkung1: Abfragen der Regenwerte für längere Zeiträume dauern sehr lange (ca. 5 Minuten), >21 Stunden können zu einem Time-Out-Error in R bei der Abfrage des RADOLAN-Dienstes bzw. des WPS (org.n52.wps.server.r.colabis.dwd.radar.data.process) durch getURL() führen.
+Bemerkung2: Der Name der Regenstation (rain gauge) wird automatisch aus dem .inp-File ausgelesen. Es darf nur eine einzige Regenstation vorhanden sein.
 
 
 WPS2_Simulation: R-Skript anpassen -> siehe Abschnitt 'Anzupassende Variablen' oben im Skript
 - inp_path: Pfad zum Ordner, in dem die binäre Output-Datei (.out) gespeichert wurde (= Output von WPS1)
-- node_names: Namen aller Knoten entsprechend der Spalte "Name" im Abschnitt [JUNCTIONS] und [OUTFALLS] im .inp-File
-Außerdem müssen ggf. die Codes für die Schadstoffe angepasst werden. Um herauszufinden, welche Schadstoffe im .out-File vorhanden sind und wie die entsprechenden Codes heißen, kann der Befehl read_out(file=<NameDesOutFile>, iType=1, object_name=<NameEinesBeliebigenKnoten>) ohne Angabe des Parameters vIndex ausgeführt werden. Es erscheint dann in der Konsole eine Liste mit den verfügbaren Codes für die Variablen, die an diesem Knoten abgefragt werden können. Die hier (im interaktiven Modus) angegebenen Codes sind aber leider nicht die gleichen, die als Parameter (vIndex bzw. var) der Funktion übergeben werden, sondern sind immer um 1 größer (d.h. um die korrekten Codes für den Funktionsaufruf zu erhalten muss -1 gerechnet werden). Die Codes können dann entsprechend in die if-Anweisungen und die Beschreibung des Inputs (wps.in) "pollutant" eingefügt werden.
+Bemerkung1: Ggf. müssen auch die Codes für die Schadstoffe angepasst werden. Um herauszufinden, welche Schadstoffe im .out-File vorhanden sind und wie die entsprechenden Codes heißen, kann der Befehl read_out(file=<NameDesOutFile>, iType=1, object_name=<NameEinesBeliebigenKnoten>) ohne Angabe des Parameters vIndex ausgeführt werden. Es erscheint dann in der Konsole eine Liste mit den verfügbaren Codes für die Variablen, die an diesem Knoten abgefragt werden können. Die hier (im interaktiven Modus) angegebenen Codes sind aber leider nicht die gleichen, die als Parameter (vIndex bzw. var) der Funktion übergeben werden, sondern sind immer um 1 größer (d.h. um die korrekten Codes für den Funktionsaufruf zu erhalten muss -1 gerechnet werden). Die Codes können dann entsprechend in die if-Anweisungen und die Beschreibung des Inputs (wps.in) "pollutant" eingefügt werden.
+Bemerkung2: Die Namen aller Knoten (junctions, outfalls) werden automatisch aus dem inp-File ausgelesen.

@@ -29,10 +29,8 @@ swmm_path <- "C:/Program Files (x86)/EPA SWMM 5.1/swmm5.exe"
 out_path <- "D:/BueRO/SHK_TUD/COLABIS/Outputs_Test"
 # Shapefile mit Position der Regen-Station (rain gauge) im SWMM-Projekt
 station <- "https://colabis.de/data/COLABIS_eschdorf_4326.zip"
-# Name der Regenstation (identisch mit Name im .inp-File)
-station_name <- "N_ED"
 # Inhalt der Fehler-Datei, wenn keine Simulation durchgefuehrt wurde
-message <- "No rain values for required time period available. No simulation possible."
+message <- "No simulation possible. No rain values for required time period available or required period too long (time-out error)."
 # ---------------------------------------------------------------------------------
 
 
@@ -88,6 +86,12 @@ response <- getURL(url=url, postfields=xml_request, httpheader=header,
                    verbose=TRUE)
 data <- unlist(strsplit(gsub('\"','',response),'\n'))
 
+# Stationsname aus Input-File auslesen
+raw_inp <- readLines(paste0(inp,".inp"))
+inp_name <- raw_inp[grep("[RAINGAGES]", raw_inp, fixed=T)
+                    :grep("[SUBCATCHMENTS]", raw_inp, fixed=T)]
+station_name <- unlist(strsplit(inp_name[4],split=" +"))[7]
+
 # Format anpassen fuer SWMM
 rain_data <- matrix(nrow=(length(data)-1), ncol=7)
 rain_data[,1] <- station_name # Stationsname
@@ -116,7 +120,6 @@ if(nrow(rain_data)>0){
               row.names=F, col.names=F, quote=F)
   
   # Regendatei im .inp-File aendern (entsprechend Dateiname oben)
-  raw_inp <- readLines(paste0(inp,".inp"))
   p1 <- paste0("FILE       \".*\"       ", station_name)
   r1 <- paste0("FILE       \"", rain_file, "\"       ", station_name)
   n1 <- gsub(pattern = p1, replace = r1, x = raw_inp)

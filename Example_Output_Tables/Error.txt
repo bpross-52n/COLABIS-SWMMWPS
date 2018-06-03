@@ -1,1 +1,1 @@
-No rain values for required time period available. No simulation possible.
+No simulation possible. No rain values for required time period available or required period too long (time-out error).
