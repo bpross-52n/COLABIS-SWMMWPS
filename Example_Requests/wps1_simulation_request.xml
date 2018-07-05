@@ -21,8 +21,12 @@ http://schemas.opengis.net/wps/1.0.0/wpsExecute_request.xsd">
 				<wps:LiteralData>5</wps:LiteralData>
 			</wps:Data>
 		</wps:Input>
-
-		
+		<wps:Input>
+			<ows:Identifier>demo</ows:Identifier>
+			<wps:Data>
+				<wps:LiteralData>TRUE</wps:LiteralData>
+			</wps:Data>
+		</wps:Input>
 	</wps:DataInputs>
 	
 	<wps:ResponseForm>
