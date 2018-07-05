@@ -16,8 +16,10 @@ DOKU - SWMM-File erstellen (WPS1_Simulation) und auslesen (WPS2_Auslesen) mit R
 - GeoTools package ebenfalls downloaden, entpacken und jar-files (.../WEB-INF/lib) kopieren (...\Tomcat 8.5\webapps\wps\WEB-INF\lib)
 - siehe auch: https://52north.org/software/software-projects/wps/#quickStart
 
-- in R/resources Ordner SWMM anlegen, SWMM-Inputdatei(en -> mit/ohne Straßenreinigung) dorthin kopieren
+- in R/resources Ordner SWMM anlegen, SWMM-Inputdatei(en -> mit/ohne Straßenreinigung) und Beispielregen-Datei dorthin kopieren
 	...\webapps\wps\R\resources\SWMM\<NameDesSWMMProjektes>.inp
+	...\webapps\wps\R\resources\SWMM\<NameDesDemoRegens>.dat
+Bemerkung: Die inp-File(s) sollten an den Demo-Regen angepasst sein, d. h. Dateiname und Simulationszeitraum müssen übereinstimmen. (Für einen aktuell abgerufenen Regen wird das inp-File automatisch manipuliert.)
 
 
 
