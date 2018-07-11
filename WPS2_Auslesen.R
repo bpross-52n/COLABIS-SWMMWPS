@@ -34,7 +34,7 @@
 
 # Anzupassende Variablen (siehe Doku) ---------------------------------------------
 # Pfad zur .out-Datei (von WPS1_Simulation erstellt)
-inp_path <- "D:/BueRO/SHK_TUD/COLABIS/Outputs_Test"
+inp_path <- "C:/WPS-support-files/swmm-output"
 # Namen der Schadstoffe in Codes umwandeln
 # Ausfuehren von read_out() ohne Angabe des Parameters vIndex zeigt verfuegbare Elemente
 #read_out(file=binary, iType=1, object_name=name)
