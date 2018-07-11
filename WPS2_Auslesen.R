@@ -49,8 +49,9 @@ library(swmmr)
 library(zoo)
 
 
+#Dateiendung entfernen, damit die vom Simulations-Prozess erzeugte _new-Datei gefunden wird
+binary_filename <- strsplit(binary, "[.]")[[1]][1]
 # vollstaendiger Pfad zu .out-File
-binary_filename <- binary
 binary <- paste0(inp_path,"/",binary)
 
 if(method == "SingleNode"){
