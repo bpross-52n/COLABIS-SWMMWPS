@@ -2,6 +2,9 @@
 # abstract = liest von COLABIS_WPS1_Simulation erstellte out-Datei aus;
 
 
+# wps.res: SWMM/SWMM_project_original.inp;
+
+
 # wps.in: id = binary, type = string,
 # title = Name des out-File mit Dateiendung,
 # abstract = Ergebnis der SWMM-Simulation (WPS1) mit/ohne Strassenreinigung;
@@ -22,7 +25,7 @@
 # Variablen fuer Testlauf in RStudio
 # wps.off;
   binary <- "eschdorf_v6_20141208_new.out"
-  method <- "SingleNode"
+  method <- "MinMax"
   name <- "5"
   pollutant <- "CSB"
 # wps.on;
@@ -31,9 +34,7 @@
 
 # Anzupassende Variablen (siehe Doku) ---------------------------------------------
 # Pfad zur .out-Datei (von WPS1_Simulation erstellt)
-inp_path <- "c:/WPS-support-files/swmm-output"
-# Namen aller Knoten entsprechend [JUNCTIONS] und [OUTFALLS] im inp-File
-node_names <- c(1:6, 8, 10:12, 14:27, 29:51, 53:95, 97, 98, 100, 102, 104:296, 299:343, "Out1")
+inp_path <- "D:/BueRO/SHK_TUD/COLABIS/Outputs_Test"
 # Namen der Schadstoffe in Codes umwandeln
 # Ausfuehren von read_out() ohne Angabe des Parameters vIndex zeigt verfuegbare Elemente
 #read_out(file=binary, iType=1, object_name=name)
@@ -49,6 +50,7 @@ library(zoo)
 
 
 # vollstaendiger Pfad zu .out-File
+binary_filename <- binary
 binary <- paste0(inp_path,"/",binary)
 
 if(method == "SingleNode"){
@@ -68,6 +70,23 @@ if(method == "SingleNode"){
 
 
 if (method == "MinMax" || method == "AllNodes"){
+  
+  # Namen der Knoten aus inp-File extrahieren
+  raw_inp <- readLines(paste0(unlist(strsplit(binary_filename,
+                                              "_new"))[1], ".inp"))
+  junction_names <- raw_inp[grep("[JUNCTIONS]",raw_inp, fixed=T)
+                            :grep("[OUTFALLS]",raw_inp, fixed=T)]
+  outfall_names <- raw_inp[grep("[OUTFALLS]",raw_inp, fixed=T)
+                           :grep("[CONDUITS]",raw_inp, fixed=T)]
+  junctions <- character()
+  for(j in 4:(length(junction_names)-2)){
+    junctions[j-3] <- unlist(strsplit(junction_names[j]," +"))[1]
+  }
+  outfalls <- character()
+  for(o in 4:(length(outfall_names)-2)){
+    outfalls[o-3] <- unlist(strsplit(outfall_names[o]," +"))[1]
+  }
+  node_names <- c(junctions,outfalls)
   
   # .out-Datei auslesen fuer alle Knoten (node_names)
   # und ausgewaehlten Schadstoff (pollutant bzw. var)

@@ -1,0 +1,38 @@
+DOKU - SWMM-File erstellen (WPS1_Simulation) und auslesen (WPS2_Auslesen) mit R
+
+- SWMM installieren (Version 5.1)
+
+- R installieren (Version R-3.4.1)
+- RServe installieren (Version 1.7-3): über install.packages() in R
+- ggf. Umgebungsvariablen anpassen (Windows7: Systemsteuerung -> System -> erweiterte Systemeinstellungen -> Tab "Erweitert", Button "Umgebungsvariablen...")
+	RHOME = C:\Program Files\R\R-x.y.z
+	PATH = [...];%RHOME%\bin\x64=
+- weitere benötigte Bibliotheken in R, ggf. über install.packages() installieren:
+	swmmr (Version 0.7.0),
+	zoo (Version 1.8-0)
+
+- Apache Tomcat (Version 8.5.20)
+- WPS als war-file in Tomcat integrieren (Version 3.6.1, aktuell: 3.6.2 -> https://github.com/52North/WPS/releases/tag/v3.6.2)
+- GeoTools package ebenfalls downloaden, entpacken und jar-files (.../WEB-INF/lib) kopieren (...\Tomcat 8.5\webapps\wps\WEB-INF\lib)
+- siehe auch: https://52north.org/software/software-projects/wps/#quickStart
+
+- in R/resources Ordner SWMM anlegen, SWMM-Inputdatei(en -> mit/ohne Straßenreinigung) und Beispielregen-Datei dorthin kopieren
+	...\webapps\wps\R\resources\SWMM\<NameDesSWMMProjektes>.inp
+	...\webapps\wps\R\resources\SWMM\<NameDesDemoRegens>.dat
+Bemerkung: Die inp-File(s) sollten an den Demo-Regen angepasst sein, d. h. Dateiname und Simulationszeitraum müssen übereinstimmen. (Für einen aktuell abgerufenen Regen wird das inp-File automatisch manipuliert.)
+
+
+
+WPS1_Simulation: R-Skript anpassen -> siehe Abschnitt 'Anzupassende Variablen' oben im Skript
+- wps.res: Dateinamen der inp-Files in Resources-Ordner eintragen
+- swmm_path: SWMM-Installationspfad
+- out_path: Pfad zum Ordner, in dem die binäre Output-Datei (.out) gespeichert wird (= Input für WPS2)
+- station: URL zu Shapefile mit Position der Regenstation (analog zu http://geoprocessing.demo.52north.org:8080/data/sample-points-wgs84.zip)
+Bemerkung1: Abfragen der Regenwerte für längere Zeiträume dauern sehr lange (ca. 5 Minuten), >21 Stunden können zu einem Time-Out-Error in R bei der Abfrage des RADOLAN-Dienstes bzw. des WPS (org.n52.wps.server.r.colabis.dwd.radar.data.process) durch getURL() führen.
+Bemerkung2: Der Name der Regenstation (rain gauge) wird automatisch aus dem .inp-File ausgelesen. Es darf nur eine einzige Regenstation vorhanden sein.
+
+
+WPS2_Simulation: R-Skript anpassen -> siehe Abschnitt 'Anzupassende Variablen' oben im Skript
+- inp_path: Pfad zum Ordner, in dem die binäre Output-Datei (.out) gespeichert wurde (= Output von WPS1)
+Bemerkung1: Ggf. müssen auch die Codes für die Schadstoffe angepasst werden. Um herauszufinden, welche Schadstoffe im .out-File vorhanden sind und wie die entsprechenden Codes heißen, kann der Befehl read_out(file=<NameDesOutFile>, iType=1, object_name=<NameEinesBeliebigenKnoten>) ohne Angabe des Parameters vIndex ausgeführt werden. Es erscheint dann in der Konsole eine Liste mit den verfügbaren Codes für die Variablen, die an diesem Knoten abgefragt werden können. Die hier (im interaktiven Modus) angegebenen Codes sind aber leider nicht die gleichen, die als Parameter (vIndex bzw. var) der Funktion übergeben werden, sondern sind immer um 1 größer (d.h. um die korrekten Codes für den Funktionsaufruf zu erhalten muss -1 gerechnet werden). Die Codes können dann entsprechend in die if-Anweisungen und die Beschreibung des Inputs (wps.in) "pollutant" eingefügt werden.
+Bemerkung2: Die Namen aller Knoten (junctions, outfalls) werden automatisch aus dem inp-File ausgelesen.

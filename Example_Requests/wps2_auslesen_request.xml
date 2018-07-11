@@ -24,7 +24,7 @@ http://schemas.opengis.net/wps/1.0.0/wpsExecute_request.xsd">
 		<wps:Input>
 			<ows:Identifier>name</ows:Identifier>
 			<wps:Data>
-				<wps:LiteralData>Out1</wps:LiteralData>
+				<wps:LiteralData></wps:LiteralData>
 			</wps:Data>
 		</wps:Input>
 		<wps:Input>
