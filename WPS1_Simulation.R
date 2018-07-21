@@ -21,8 +21,8 @@
 # Variablen fuer Testlauf in RStudio
 # wps.off;
   inp <- "eschdorf_v6_20141208_demo"
-  time <- 5
-  demo <- TRUE
+  time <- 12
+  demo <- FALSE
 # wps.on;
 
 
@@ -47,8 +47,7 @@ library(swmmr)
 
 if(demo){
   # Demo-Modus: Input-Datei mit demo_rain.dat
-  # File-Name und entsprechende Simulationszeitraum sind in Ausgangsprojekten auf demo_rain.dat angepasst
-  setwd(getwd())
+  # File-Name und entsprechender Simulationszeitraum sind in Ausgangsprojekten auf demo_rain.dat angepasst
   run_swmm(inp = paste0(inp, ".inp"), exec=swmm_path)
   out <- paste0(inp, ".out")
   
@@ -191,5 +190,5 @@ if(demo){
 
 
 # wps.out: id = out, type = text,
-# title = Simulationsergebnis,
-# abstract = Ausgabe der SWMM-Simulation im Binaerformat zur Weiterverarbeitung mit WPS2_Auslesen;
+# title = Simulationsergebnis bzw Fehlermeldung,
+# abstract = Ausgabe der SWMM-Simulation im Binaerformat zur Weiterverarbeitung mit WPS2_Auslesen oder txt-Datei mit Fehlermeldung;
