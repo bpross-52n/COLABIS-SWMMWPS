@@ -47,79 +47,108 @@ if(pollutant == "NH4N"){var <- 8-1}
 # Bibliotheken
 library(swmmr)
 library(zoo)
+library(jsonlite)
 
 
 # vollstaendiger Pfad zu .out-File
 binary_filename <- binary
 binary <- paste0(inp_path,"/",binary)
 
+# Namen + Koordinaten der Knoten aus inp-File extrahieren
+raw_inp <- readLines(paste0(unlist(strsplit(binary_filename,
+                                            "_new"))[1], ".inp"))
+nodes_inp <- raw_inp[grep("[COORDINATES]",raw_inp, fixed=T)
+                     :grep("[VERTICES]",raw_inp, fixed=T)]
+nodes_info <- data.frame(name=rep(NA, length(nodes_inp)-5),
+                         title=rep(NA, length(nodes_inp)-5),
+                         x=rep(NA, length(nodes_inp)-5),
+                         y=rep(NA, length(nodes_inp)-5))
+for(n in 4:(length(nodes_inp)-2)){
+  nodes_info$name[n-3] <- unlist(strsplit(nodes_inp[n]," +"))[1]
+  nodes_info$title[n-3] <- paste0("node",nodes_info$name[n-3])
+  nodes_info$x[n-3] <- unlist(strsplit(nodes_inp[n]," +"))[2]
+  nodes_info$y[n-3] <- unlist(strsplit(nodes_inp[n]," +"))[3]
+}
+
+
 if(method == "SingleNode"){
   
   # .out-Datei auslesen fuer 1 Knoten (name)
   # und ausgewaehlten Schadstoff (pollutant bzw. var)
   list <- read_out(file=binary, iType=1, vIndex=var, object_name=name)
-  title <- names(list) # Name des Knoten (vgl. name)
-  var_name <- names(list[[title]]) # Name des Schadstoffes (vgl. pollutant)
   xts <- list[[1]][[1]] # xts-Objekt mit Schadstoffwerten
-  
-  # Ausgabe: csv-Datei erstellen
-  table <- paste0(title, "_", var_name, ".csv") # Name des Output-File
-  write.zoo(xts, file=table, sep=",",dec=".")
-  
+  df <- data.frame(rep(nodes_info$title[nodes_info$name==name],nrow(xts)),
+                   rep(nodes_info$x[nodes_info$name==name],nrow(xts)),
+                   rep(nodes_info$y[nodes_info$name==name],nrow(xts)),
+                   time(xts), coredata(xts[,1]))
+  # Spalten: Knotenname, X-Koordinate, Y-Koordinate, Zeitstempel, Schadstoffwert
+  colnames(df) <- c("name", "x", "y", "time", pollutant)
+
+  # Ausgabe: json-Datei erstellen
+  table <- paste0(nodes_info$title[nodes_info$name==name], "_",
+                  pollutant, ".json") # Name des Output-File
+  write(toJSON(df), file=table)
+
 }
 
 
 if (method == "MinMax" || method == "AllNodes"){
-  
-  # Namen der Knoten aus inp-File extrahieren
-  raw_inp <- readLines(paste0(unlist(strsplit(binary_filename,
-                                              "_new"))[1], ".inp"))
-  junction_names <- raw_inp[grep("[JUNCTIONS]",raw_inp, fixed=T)
-                            :grep("[OUTFALLS]",raw_inp, fixed=T)]
-  outfall_names <- raw_inp[grep("[OUTFALLS]",raw_inp, fixed=T)
-                           :grep("[CONDUITS]",raw_inp, fixed=T)]
-  junctions <- character()
-  for(j in 4:(length(junction_names)-2)){
-    junctions[j-3] <- unlist(strsplit(junction_names[j]," +"))[1]
-  }
-  outfalls <- character()
-  for(o in 4:(length(outfall_names)-2)){
-    outfalls[o-3] <- unlist(strsplit(outfall_names[o]," +"))[1]
-  }
-  node_names <- c(junctions,outfalls)
-  
-  # .out-Datei auslesen fuer alle Knoten (node_names)
+
+  # .out-Datei auslesen fuer alle Knoten (nodes_info$name)
   # und ausgewaehlten Schadstoff (pollutant bzw. var)
-  list <- read_out(file=binary, iType=1, object_name=node_names, vIndex=var)
-  title <- names(list) # Namen aller Knoten (vgl. node_names)
-  var_name <- names(list[[title[1]]]) # Name des Schadstoffes (vgl. pollutant)
+  list <- read_out(file=binary, iType=1, object_name=nodes_info$name, vIndex=var)
   xts <- list[[1]][[1]] # Zusammenfuehren der xts-Objekte mit Schadstoffwerten
-  for(i in 2:length(node_names)){
+  for(i in 2:length(nodes_info$title)){
     xts <- merge(xts, list[[i]][[1]])
   }
-  colnames(xts) <- node_names
+  colnames(xts) <- nodes_info$title
   
-  if(method == "MinMax"){
-    min_max <- range(xts[,1])
-    for(i in 2:ncol(xts)){
-      min_max <- cbind(min_max, range(xts[,i])) # Spalten = Knoten, Zeilen = Min/Max
-    }
-    # Ausgabe: csv-Datei erstellen
-    table <- paste0("AllNodes_", var_name, "_MinMax.csv") # Name des Output-File
-    write.table(min_max, file=table, sep=",", dec=".",
-                row.names=c("Min", "Max"), col.names=node_names)
-  }
   
   if(method == "AllNodes"){
-    # Ausgabe: csv-Datei erstellen
-    table <- paste0("AllNodes_", var_name, ".csv") # Name des Output-File
-    write.zoo(xts, file=table, sep=",",dec=".") # Spalten = Knoten, Zeilen = Zeitschritte
+    
+    # Spalten: Knotenname, X-Koordinate, Y-Koordinate, Zeitstempel, Schadstoffwert
+    df <- data.frame()
+    for(n in 1:ncol(xts)){
+      node_temp <- colnames(xts[,n])
+      node_df <- data.frame(rep(node_temp,nrow(xts)),
+                            rep(nodes_info$x[nodes_info$title==node_temp],nrow(xts)),
+                            rep(nodes_info$y[nodes_info$title==node_temp],nrow(xts)),
+                            time(xts), coredata(xts[,n]))
+      colnames(node_df) <- c("name", "x", "y", "time", pollutant)
+      df <- rbind(df, node_df)
+    }
+    
+    # Ausgabe: json-Datei erstellen
+    table <- paste0("AllNodes_", pollutant, ".json") # Name des Output-File
+    write(toJSON(df), file=table)
+    
   }
+  
+  
+  if(method == "MinMax"){
+    
+    # Spalten: Knotenname, X-Koordinate, Y-Koordinate, Zeitstempel, Minimum, Maximum
+    df <- data.frame()
+    for(n in 1:ncol(xts)){
+      node_temp <- colnames(xts[,n])
+      node_df <- data.frame(rep(node_temp,2),
+                            rep(nodes_info$x[nodes_info$title==node_temp],2),
+                            rep(nodes_info$y[nodes_info$title==node_temp],2),
+                            c("min","max"), range(coredata(xts[,n])))
+      colnames(node_df) <- c("name", "x", "y", "min_max", pollutant)
+      df <- rbind(df, node_df)
+    }
+    
+    # Ausgabe: json-Datei erstellen
+    table <- paste0("AllNodes_", pollutant, "_MinMax.json") # Name des Output-File
+    write(toJSON(df), file=table)
+  }
+
   
 }
 
 
 
 # wps.out: id = table, type = text,
-# title = Ausgabetabelle (csv),
+# title = Ausgabetabelle (json),
 # abstract = Werte des/der ausgewaehlten Knoten fuer ausgewaehlten Schadstoff;
