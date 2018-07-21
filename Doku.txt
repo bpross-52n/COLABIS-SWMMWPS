@@ -32,7 +32,7 @@ Bemerkung1: Abfragen der Regenwerte für längere Zeiträume dauern sehr lange (ca.
 Bemerkung2: Der Name der Regenstation (rain gauge) wird automatisch aus dem .inp-File ausgelesen. Es darf nur eine einzige Regenstation vorhanden sein.
 
 
-WPS2_Simulation: R-Skript anpassen -> siehe Abschnitt 'Anzupassende Variablen' oben im Skript
+WPS2_Auslesen: R-Skript anpassen -> siehe Abschnitt 'Anzupassende Variablen' oben im Skript
 - inp_path: Pfad zum Ordner, in dem die binäre Output-Datei (.out) gespeichert wurde (= Output von WPS1)
 Bemerkung1: Ggf. müssen auch die Codes für die Schadstoffe angepasst werden. Um herauszufinden, welche Schadstoffe im .out-File vorhanden sind und wie die entsprechenden Codes heißen, kann der Befehl read_out(file=<NameDesOutFile>, iType=1, object_name=<NameEinesBeliebigenKnoten>) ohne Angabe des Parameters vIndex ausgeführt werden. Es erscheint dann in der Konsole eine Liste mit den verfügbaren Codes für die Variablen, die an diesem Knoten abgefragt werden können. Die hier (im interaktiven Modus) angegebenen Codes sind aber leider nicht die gleichen, die als Parameter (vIndex bzw. var) der Funktion übergeben werden, sondern sind immer um 1 größer (d.h. um die korrekten Codes für den Funktionsaufruf zu erhalten muss -1 gerechnet werden). Die Codes können dann entsprechend in die if-Anweisungen und die Beschreibung des Inputs (wps.in) "pollutant" eingefügt werden.
-Bemerkung2: Die Namen aller Knoten (junctions, outfalls) werden automatisch aus dem inp-File ausgelesen.
+Bemerkung2: Die Namen und Koordinaten aller Knoten (junctions, outfalls) werden automatisch aus dem inp-File ausgelesen.
