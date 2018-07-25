@@ -8,8 +8,11 @@ DOKU - SWMM-File erstellen (WPS1_Simulation) und auslesen (WPS2_Auslesen) mit R
 	RHOME = C:\Program Files\R\R-x.y.z
 	PATH = [...];%RHOME%\bin\x64=
 - weitere benötigte Bibliotheken in R, ggf. über install.packages() installieren:
+	RCurl (Version 1.95-4.10)
 	swmmr (Version 0.7.0),
 	zoo (Version 1.8-0)
+	sf (Version 0.6-0)
+	jsonlite (Version 1.5)
 
 - Apache Tomcat (Version 8.5.20)
 - WPS als war-file in Tomcat integrieren (Version 3.6.1, aktuell: 3.6.2 -> https://github.com/52North/WPS/releases/tag/v3.6.2)
@@ -34,5 +37,5 @@ Bemerkung2: Der Name der Regenstation (rain gauge) wird automatisch aus dem .inp
 
 WPS2_Auslesen: R-Skript anpassen -> siehe Abschnitt 'Anzupassende Variablen' oben im Skript
 - inp_path: Pfad zum Ordner, in dem die binäre Output-Datei (.out) gespeichert wurde (= Output von WPS1)
-Bemerkung1: Ggf. müssen auch die Codes für die Schadstoffe angepasst werden. Um herauszufinden, welche Schadstoffe im .out-File vorhanden sind und wie die entsprechenden Codes heißen, kann der Befehl read_out(file=<NameDesOutFile>, iType=1, object_name=<NameEinesBeliebigenKnoten>) ohne Angabe des Parameters vIndex ausgeführt werden. Es erscheint dann in der Konsole eine Liste mit den verfügbaren Codes für die Variablen, die an diesem Knoten abgefragt werden können. Die hier (im interaktiven Modus) angegebenen Codes sind aber leider nicht die gleichen, die als Parameter (vIndex bzw. var) der Funktion übergeben werden, sondern sind immer um 1 größer (d.h. um die korrekten Codes für den Funktionsaufruf zu erhalten muss -1 gerechnet werden). Die Codes können dann entsprechend in die if-Anweisungen und die Beschreibung des Inputs (wps.in) "pollutant" eingefügt werden.
-Bemerkung2: Die Namen und Koordinaten aller Knoten (junctions, outfalls) werden automatisch aus dem inp-File ausgelesen.
+Bemerkung1: Die Codes für das Auslesen der Schadstoffe werden automatisch aus dem inp-File erstellt.
+Bemerkung2: Die Namen und Koordinaten aller Knoten (junctions, outfalls) werden automatisch aus dem inp-File ausgelesen. Die Koordinaten werden in WGS84 umgerechnet.
