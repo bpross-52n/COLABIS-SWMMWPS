@@ -25,7 +25,7 @@
 # Variablen fuer Testlauf in RStudio
 # wps.off;
   binary <- "eschdorf_v6_20141208_new.out"
-  method <- "MinMax"
+  method <- "SingleNode"
   name <- "5"
   pollutant <- "CSB"
 # wps.on;
@@ -35,11 +35,6 @@
 # Anzupassende Variablen (siehe Doku) ---------------------------------------------
 # Pfad zur .out-Datei (von WPS1_Simulation erstellt)
 inp_path <- "D:/BueRO/SHK_TUD/COLABIS/Outputs_Test"
-# Namen der Schadstoffe in Codes umwandeln
-# Ausfuehren von read_out() ohne Angabe des Parameters vIndex zeigt verfuegbare Elemente
-#read_out(file=binary, iType=1, object_name=name)
-if(pollutant == "CSB"){var <- 7-1}
-if(pollutant == "NH4N"){var <- 8-1}
 # ---------------------------------------------------------------------------------
 
 
@@ -47,6 +42,7 @@ if(pollutant == "NH4N"){var <- 8-1}
 # Bibliotheken
 library(swmmr)
 library(zoo)
+library(sf)
 library(jsonlite)
 
 
@@ -54,9 +50,19 @@ library(jsonlite)
 binary_filename <- binary
 binary <- paste0(inp_path,"/",binary)
 
-# Namen + Koordinaten der Knoten aus inp-File extrahieren
+# Codierung zur Abfrage von Schadstoffen
 raw_inp <- readLines(paste0(unlist(strsplit(binary_filename,
                                             "_new"))[1], ".inp"))
+pollutants_inp <- raw_inp[grep("[POLLUTANTS]",raw_inp, fixed=T)
+                          :grep("[LOADINGS]",raw_inp, fixed=T)]
+pollutants <- rep(NA, length(pollutants_inp)-5)
+for(p in 4:length(pollutants_inp)-2){
+  pollutants[p-3] <- unlist(strsplit(pollutants_inp[p]," +"))[1]
+}
+var <- which(pollutants==pollutant)+5
+
+
+# Namen + Koordinaten der Knoten aus inp-File extrahieren
 nodes_inp <- raw_inp[grep("[COORDINATES]",raw_inp, fixed=T)
                      :grep("[VERTICES]",raw_inp, fixed=T)]
 nodes_info <- data.frame(name=rep(NA, length(nodes_inp)-5),
@@ -68,6 +74,16 @@ for(n in 4:(length(nodes_inp)-2)){
   nodes_info$title[n-3] <- paste0("node",nodes_info$name[n-3])
   nodes_info$x[n-3] <- unlist(strsplit(nodes_inp[n]," +"))[2]
   nodes_info$y[n-3] <- unlist(strsplit(nodes_inp[n]," +"))[3]
+}
+nodes_info$x <- as.numeric(nodes_info$x)
+nodes_info$y <- as.numeric(nodes_info$y)
+
+# Koordinaten umrechnen: GK Zone 5 (EPSG 31469) -> WGS84 (EPSG 4326)
+nodes_sp <- st_as_sf(nodes_info, coords=c("x","y"), crs=31469)
+nodes_wgs <- st_transform(nodes_sp, crs=4326)
+for(n in 1:nrow(nodes_info)){
+  nodes_info$x[n] <- nodes_wgs$geometry[[n]][1] # longitude
+  nodes_info$y[n] <- nodes_wgs$geometry[[n]][2] # latitude
 }
 
 
@@ -81,8 +97,8 @@ if(method == "SingleNode"){
                    rep(nodes_info$x[nodes_info$name==name],nrow(xts)),
                    rep(nodes_info$y[nodes_info$name==name],nrow(xts)),
                    time(xts), coredata(xts[,1]))
-  # Spalten: Knotenname, X-Koordinate, Y-Koordinate, Zeitstempel, Schadstoffwert
-  colnames(df) <- c("name", "x", "y", "time", pollutant)
+  # Spalten: Knotenname, X-Koordinate (Longitude), Y-Koordinate (Latitude), Zeitstempel, Schadstoffwert
+  colnames(df) <- c("name", "lng", "lat", "time", pollutant)
 
   # Ausgabe: json-Datei erstellen
   table <- paste0(nodes_info$title[nodes_info$name==name], "_",
@@ -106,7 +122,7 @@ if (method == "MinMax" || method == "AllNodes"){
   
   if(method == "AllNodes"){
     
-    # Spalten: Knotenname, X-Koordinate, Y-Koordinate, Zeitstempel, Schadstoffwert
+    # Spalten: Knotenname, X-Koordinate (Longitude), Y-Koordinate (Latitude), Zeitstempel, Schadstoffwert
     df <- data.frame()
     for(n in 1:ncol(xts)){
       node_temp <- colnames(xts[,n])
@@ -114,7 +130,7 @@ if (method == "MinMax" || method == "AllNodes"){
                             rep(nodes_info$x[nodes_info$title==node_temp],nrow(xts)),
                             rep(nodes_info$y[nodes_info$title==node_temp],nrow(xts)),
                             time(xts), coredata(xts[,n]))
-      colnames(node_df) <- c("name", "x", "y", "time", pollutant)
+      colnames(node_df) <- c("name", "lng", "lat", "time", pollutant)
       df <- rbind(df, node_df)
     }
     
@@ -127,7 +143,7 @@ if (method == "MinMax" || method == "AllNodes"){
   
   if(method == "MinMax"){
     
-    # Spalten: Knotenname, X-Koordinate, Y-Koordinate, Zeitstempel, Minimum, Maximum
+    # Spalten: Knotenname, X-Koordinate (Longitude), Y-Koordinate (Latitude), Zeitstempel, Schadstoffwert
     df <- data.frame()
     for(n in 1:ncol(xts)){
       node_temp <- colnames(xts[,n])
@@ -135,7 +151,7 @@ if (method == "MinMax" || method == "AllNodes"){
                             rep(nodes_info$x[nodes_info$title==node_temp],2),
                             rep(nodes_info$y[nodes_info$title==node_temp],2),
                             c("min","max"), range(coredata(xts[,n])))
-      colnames(node_df) <- c("name", "x", "y", "min_max", pollutant)
+      colnames(node_df) <- c("name", "lng", "lat", "min_max", pollutant)
       df <- rbind(df, node_df)
     }
     
