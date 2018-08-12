@@ -93,17 +93,26 @@ if(method == "SingleNode"){
   # und ausgewaehlten Schadstoff (pollutant bzw. var)
   list <- read_out(file=binary, iType=1, vIndex=var, object_name=name)
   xts <- list[[1]][[1]] # xts-Objekt mit Schadstoffwerten
-  df <- data.frame(rep(nodes_info$title[nodes_info$name==name],nrow(xts)),
-                   rep(nodes_info$x[nodes_info$name==name],nrow(xts)),
-                   rep(nodes_info$y[nodes_info$name==name],nrow(xts)),
-                   time(xts), coredata(xts[,1]))
-  # Spalten: Knotenname, X-Koordinate (Longitude), Y-Koordinate (Latitude), Zeitstempel, Schadstoffwert
-  colnames(df) <- c("name", "lng", "lat", "time", pollutant)
-
+  data_obj <- toJSON(data.frame(time=time(xts),
+                                value=coredata(xts)))
+  json_str <- sprintf(
+'{
+  "name" : "%s",
+  "x" : "%s",
+  "y" : "%s",
+  "phenomenon" : "%s",
+  "data" : %s
+}',
+    nodes_info$title[nodes_info$name==name],
+    nodes_info$x[nodes_info$name==name],
+    nodes_info$y[nodes_info$name==name],
+    pollutant,
+    data_obj)
+  
   # Ausgabe: json-Datei erstellen
   table <- paste0(nodes_info$title[nodes_info$name==name], "_",
                   pollutant, ".json") # Name des Output-File
-  write(toJSON(df), file=table)
+  writeLines(json_str, table)
 
 }
 
@@ -112,7 +121,8 @@ if (method == "MinMax" || method == "AllNodes"){
 
   # .out-Datei auslesen fuer alle Knoten (nodes_info$name)
   # und ausgewaehlten Schadstoff (pollutant bzw. var)
-  list <- read_out(file=binary, iType=1, object_name=nodes_info$name, vIndex=var)
+  list <- read_out(file=binary, iType=1,
+                   object_name=nodes_info$name, vIndex=var)
   xts <- list[[1]][[1]] # Zusammenfuehren der xts-Objekte mit Schadstoffwerten
   for(i in 2:length(nodes_info$title)){
     xts <- merge(xts, list[[i]][[1]])
@@ -122,45 +132,70 @@ if (method == "MinMax" || method == "AllNodes"){
   
   if(method == "AllNodes"){
     
-    # Spalten: Knotenname, X-Koordinate (Longitude), Y-Koordinate (Latitude), Zeitstempel, Schadstoffwert
-    df <- data.frame()
+    json_str <- "{\n"
     for(n in 1:ncol(xts)){
-      node_temp <- colnames(xts[,n])
-      node_df <- data.frame(rep(node_temp,nrow(xts)),
-                            rep(nodes_info$x[nodes_info$title==node_temp],nrow(xts)),
-                            rep(nodes_info$y[nodes_info$title==node_temp],nrow(xts)),
-                            time(xts), coredata(xts[,n]))
-      colnames(node_df) <- c("name", "lng", "lat", "time", pollutant)
-      df <- rbind(df, node_df)
+      data_obj <- toJSON(data.frame(time=time(xts[,n]),
+                                    value=coredata(xts[,n])))
+      obj <- sprintf(
+'{
+  "name" : "%s",
+  "x" : "%s",
+  "y" : "%s",
+  "phenomenon" : "%s",
+  "data" : %s
+}',
+        colnames(xts[,n]),
+        nodes_info$x[nodes_info$title==colnames(xts[,n])],
+        nodes_info$y[nodes_info$title==colnames(xts[,n])],
+        pollutant,
+        data_obj)
+      json_str <- paste0(json_str, "\n", obj)
     }
+    json_str <- paste0(json_str, "\n}")
     
     # Ausgabe: json-Datei erstellen
     table <- paste0("AllNodes_", pollutant, ".json") # Name des Output-File
-    write(toJSON(df), file=table)
-    
+    writeLines(json_str, table)
+
   }
   
   
   if(method == "MinMax"){
     
-    # Spalten: Knotenname, X-Koordinate (Longitude), Y-Koordinate (Latitude), Zeitstempel, Schadstoffwert
-    df <- data.frame()
+    json_str <- "[{\n"
     for(n in 1:ncol(xts)){
-      node_temp <- colnames(xts[,n])
-      node_df <- data.frame(rep(node_temp,2),
-                            rep(nodes_info$x[nodes_info$title==node_temp],2),
-                            rep(nodes_info$y[nodes_info$title==node_temp],2),
-                            c("min","max"), range(coredata(xts[,n])))
-      colnames(node_df) <- c("name", "lng", "lat", "min_max", pollutant)
-      df <- rbind(df, node_df)
+      obj <- sprintf(
+'{
+  "name" : "%s",
+  "x" : "%s",
+  "y" : "%s",
+  "phenomenon" : "%s",
+  "min" : {
+           "time" : %s,
+           "value" : %s
+          },
+  "max" : {
+           "time" : %s,
+           "value" : %s
+          },
+}',
+        colnames(xts[,n]),
+        nodes_info$x[nodes_info$title==colnames(xts[,n])],
+        nodes_info$y[nodes_info$title==colnames(xts[,n])],
+        pollutant,
+        time(xts[which(xts[,n]==min(xts[,n])),n])[1],
+        min(coredata(xts[,n])),
+        time(xts[which(xts[,n]==max(xts[,n])),n])[1],
+        max(coredata(xts[,n])))
+      json_str <- paste0(json_str, "\n", obj)
     }
+    json_str <- paste0(json_str, "\n}]")
     
     # Ausgabe: json-Datei erstellen
     table <- paste0("AllNodes_", pollutant, "_MinMax.json") # Name des Output-File
-    write(toJSON(df), file=table)
+    writeLines(json_str, table)
   }
 
-  
 }
 
 
