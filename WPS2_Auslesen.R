@@ -2,12 +2,8 @@
 # abstract = liest von COLABIS_WPS1_Simulation erstellte out-Datei aus;
 
 
-# wps.res: SWMM/SWMM_project_original.inp;
+# wps.res: SWMM/2daysInt.inp;
 
-
-# wps.in: id = binary, type = string,
-# title = Name des out-File mit Dateiendung,
-# abstract = Ergebnis der SWMM-Simulation (WPS1) mit/ohne Strassenreinigung;
 
 # wps.in: id = method, type = string,
 # title = Ausgabemodus (SingleNode / MinMax / AllNodes),
@@ -19,22 +15,23 @@
 
 # wps.in: id = pollutant, type = string,
 # title = Name des Schadstoffes,
-# abstract = zum Beispiel CSB / NH4N;
+# abstract = Auswahl des Schadstoffes (pb / zn / cd / cu / PAH);
 
 
 # Variablen fuer Testlauf in RStudio
 # wps.off;
-  binary <- "eschdorf_v6_20141208_new.out"
   method <- "SingleNode"
-  name <- "5"
-  pollutant <- "CSB"
+  name <- "36Q173"
+  pollutant <- "pb"
 # wps.on;
 
 
 
 # Anzupassende Variablen (siehe Doku) ---------------------------------------------
-# Pfad zur .out-Datei (von WPS1_Simulation erstellt)
+# Pfad zur .out-Datei (= out_path in WPS1)
 inp_path <- "D:/BueRO/SHK_TUD/COLABIS/Outputs_Test"
+# Name der .out-Datei (von WPS1 erstellt)
+binary <- "2daysInt_new.out"
 # ---------------------------------------------------------------------------------
 
 
@@ -46,6 +43,11 @@ library(sf)
 library(jsonlite)
 
 
+# Demo-Status aus Demo-Log abfragen
+raw_log <- readLines(paste0(inp_path,"/demo_log.txt"))
+demo <- ifelse(raw_log[1]=="DEMO", TRUE, FALSE)
+
+
 # vollstaendiger Pfad zu .out-File
 binary_filename <- binary
 binary <- paste0(inp_path,"/",binary)
@@ -54,7 +56,7 @@ binary <- paste0(inp_path,"/",binary)
 raw_inp <- readLines(paste0(unlist(strsplit(binary_filename,
                                             "_new"))[1], ".inp"))
 pollutants_inp <- raw_inp[grep("[POLLUTANTS]",raw_inp, fixed=T)
-                          :grep("[LOADINGS]",raw_inp, fixed=T)]
+                          :grep("[LANDUSES]",raw_inp, fixed=T)]
 pollutants <- rep(NA, length(pollutants_inp)-5)
 for(p in 4:length(pollutants_inp)-2){
   pollutants[p-3] <- unlist(strsplit(pollutants_inp[p]," +"))[1]
@@ -78,8 +80,8 @@ for(n in 4:(length(nodes_inp)-2)){
 nodes_info$x <- as.numeric(nodes_info$x)
 nodes_info$y <- as.numeric(nodes_info$y)
 
-# Koordinaten umrechnen: GK Zone 5 (EPSG 31469) -> WGS84 (EPSG 4326)
-nodes_sp <- st_as_sf(nodes_info, coords=c("x","y"), crs=31469)
+# Koordinaten umrechnen: UTM Zone 33N (EPSG 32633) -> WGS84 (EPSG 4326)
+nodes_sp <- st_as_sf(nodes_info, coords=c("x","y"), crs=32633)
 nodes_wgs <- st_transform(nodes_sp, crs=4326)
 for(n in 1:nrow(nodes_info)){
   nodes_info$x[n] <- nodes_wgs$geometry[[n]][1] # longitude
@@ -101,12 +103,14 @@ if(method == "SingleNode"){
   "x" : "%s",
   "y" : "%s",
   "phenomenon" : "%s",
+  "demo_data" : %s,
   "data" : %s
 }',
     nodes_info$title[nodes_info$name==name],
     nodes_info$x[nodes_info$name==name],
     nodes_info$y[nodes_info$name==name],
     pollutant,
+    tolower(demo),
     data_obj)
   
   # Ausgabe: json-Datei erstellen
@@ -132,18 +136,21 @@ if (method == "MinMax" || method == "AllNodes"){
   
   if(method == "AllNodes"){
     
-    json_str <- "{\n"
+    json_str <- sprintf('{
+  "demo_data": %s,
+  "data":
+  [\n', tolower(demo))
     for(n in 1:ncol(xts)){
       data_obj <- toJSON(data.frame(time=time(xts[,n]),
-                                    value=coredata(xts[,n])))
+                                    value=as.numeric(coredata(xts[,n]))))
       obj <- sprintf(
-'{
-  "name" : "%s",
-  "x" : "%s",
-  "y" : "%s",
-  "phenomenon" : "%s",
-  "data" : %s
-}',
+'    {
+       "name" : "%s",
+       "x" : "%s",
+       "y" : "%s",
+       "phenomenon" : "%s",
+       "data" : %s
+    }',
         colnames(xts[,n]),
         nodes_info$x[nodes_info$title==colnames(xts[,n])],
         nodes_info$y[nodes_info$title==colnames(xts[,n])],
@@ -151,7 +158,7 @@ if (method == "MinMax" || method == "AllNodes"){
         data_obj)
       json_str <- paste0(json_str, "\n", obj)
     }
-    json_str <- paste0(json_str, "\n}")
+    json_str <- paste0(json_str, "\n]\n}")
     
     # Ausgabe: json-Datei erstellen
     table <- paste0("AllNodes_", pollutant, ".json") # Name des Output-File
@@ -162,34 +169,30 @@ if (method == "MinMax" || method == "AllNodes"){
   
   if(method == "MinMax"){
     
-    json_str <- "[{\n"
+    json_str <- sprintf('{
+  "demo_data":%s,
+  "data":
+  [\n', tolower(demo))
     for(n in 1:ncol(xts)){
       obj <- sprintf(
-'{
-  "name" : "%s",
-  "x" : "%s",
-  "y" : "%s",
-  "phenomenon" : "%s",
-  "min" : {
-           "time" : %s,
-           "value" : %s
-          },
-  "max" : {
-           "time" : %s,
-           "value" : %s
-          },
-}',
+'  {
+    "name" : "%s",
+    "x" : "%s",
+    "y" : "%s",
+    "phenomenon" : "%s",
+    "min" : %s,
+    "max" :%s
+  }',
         colnames(xts[,n]),
         nodes_info$x[nodes_info$title==colnames(xts[,n])],
         nodes_info$y[nodes_info$title==colnames(xts[,n])],
         pollutant,
-        time(xts[which(xts[,n]==min(xts[,n])),n])[1],
         min(coredata(xts[,n])),
-        time(xts[which(xts[,n]==max(xts[,n])),n])[1],
         max(coredata(xts[,n])))
-      json_str <- paste0(json_str, "\n", obj)
+      json_str <- ifelse(n != 1, paste0(json_str, ",\n", obj),
+                         paste0(json_str, "\n", obj))
     }
-    json_str <- paste0(json_str, "\n}]")
+    json_str <- paste0(json_str, '\n  ]\n}')
     
     # Ausgabe: json-Datei erstellen
     table <- paste0("AllNodes_", pollutant, "_MinMax.json") # Name des Output-File
@@ -200,6 +203,6 @@ if (method == "MinMax" || method == "AllNodes"){
 
 
 
-# wps.out: id = table, type = text,
-# title = Ausgabetabelle (json),
+# wps.out: id = result, type = text,
+# title = Schadstoffwerte (json),
 # abstract = Werte des/der ausgewaehlten Knoten fuer ausgewaehlten Schadstoff;
