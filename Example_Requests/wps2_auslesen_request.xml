@@ -10,27 +10,21 @@ http://schemas.opengis.net/wps/1.0.0/wpsExecute_request.xsd">
 
 	<wps:DataInputs>
 		<wps:Input>
-			<ows:Identifier>binary</ows:Identifier>
-			<wps:Data>
-				<wps:LiteralData>SWMM_project_original_new.out</wps:LiteralData>
-			</wps:Data>
-		</wps:Input>
-		<wps:Input>
 			<ows:Identifier>method</ows:Identifier>
 			<wps:Data>
-				<wps:LiteralData>MinMax</wps:LiteralData>
+				<wps:LiteralData>SingleNode</wps:LiteralData>
 			</wps:Data>
 		</wps:Input>
 		<wps:Input>
 			<ows:Identifier>name</ows:Identifier>
 			<wps:Data>
-				<wps:LiteralData></wps:LiteralData>
+				<wps:LiteralData>36Q173</wps:LiteralData>
 			</wps:Data>
 		</wps:Input>
 		<wps:Input>
 			<ows:Identifier>pollutant</ows:Identifier>
 			<wps:Data>
-				<wps:LiteralData>CSB</wps:LiteralData>
+				<wps:LiteralData>pb</wps:LiteralData>
 			</wps:Data>
 		</wps:Input>
 		
@@ -39,7 +33,7 @@ http://schemas.opengis.net/wps/1.0.0/wpsExecute_request.xsd">
 	<wps:ResponseForm>
 		<wps:ResponseDocument storeExecuteResponse="true">
 			<wps:Output asReference="true">
-				<ows:Identifier>table</ows:Identifier>
+				<ows:Identifier>result</ows:Identifier>
 			</wps:Output>
 		</wps:ResponseDocument>
 	</wps:ResponseForm>
