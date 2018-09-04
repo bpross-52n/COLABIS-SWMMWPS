@@ -30,7 +30,7 @@ inp <- "2daysInt"
 # Pfad fuer Output-File (.out) -> wird von WPS2 angesteuert zum Auslesen
 out_path <- "D:/BueRO/SHK_TUD/COLABIS/Outputs_Test"
 # Shapefile mit Position der Regen-Station (rain gauge) im SWMM-Projekt
-station <- "https://colabis.de/data/COLABIS_eschdorf_4326.zip"
+station <- "http://colabis.de/data/rg-wgs84.zip"
 # Name der Datei mit Demo-Regen-Werten -> im Resources-Ordner
 demo_rain_file <- "9-15aug.dat"
 # ---------------------------------------------------------------------------------
