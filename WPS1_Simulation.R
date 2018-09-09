@@ -33,6 +33,8 @@ out_path <- "D:/BueRO/SHK_TUD/COLABIS/Outputs_Test"
 station <- "http://colabis.de/data/rg-wgs84.zip"
 # Name der Datei mit Demo-Regen-Werten -> im Resources-Ordner
 demo_rain_file <- "9-15aug.dat"
+# Maximale Zeitspanne, um auf Antwort von RADOLAN-WPS zu warten
+timeout <- as.difftime("45", format="%M", units="mins")
 # ---------------------------------------------------------------------------------
 
 
@@ -54,49 +56,80 @@ station_name <- unlist(strsplit(inp_name[4],split=" +"))[7]
 
 # Regendaten abrufen (RADOLAN-WPS)
 url <- "http://colabis.dev.52north.org/wps/WebProcessingService"
-xml_request <- paste0('<?xml version="1.0" encoding="UTF-8"?>
-  <wps:Execute service="WPS" version="1.0.0" mode="sync"
-  xmlns:wps="http://www.opengis.net/wps/1.0.0" 
-  xmlns:ows="http://www.opengis.net/ows/1.1" 
-  xmlns:xlink="http://www.w3.org/1999/xlink" 
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
-  xsi:schemaLocation="http://www.opengis.net/wps/1.0.0 
-  http://schemas.opengis.net/wps/1.0.0/wpsExecute_request.xsd">
-  <ows:Identifier>org.n52.wps.server.r.colabis.dwd.radar.data.process</ows:Identifier>
-  <wps:DataInputs>
-  <wps:Input>
-  <ows:Identifier>features</ows:Identifier>
-  <wps:Reference xlink:href="',station,'" mimeType="application/x-zipped-shp">
-  </wps:Reference>
-  </wps:Input>
-  <wps:Input>
-  <ows:Identifier>product</ows:Identifier>
-  <wps:Data>
-  <wps:LiteralData>RX</wps:LiteralData>
-  </wps:Data>
-  </wps:Input>
-  <wps:Input>
-  <ows:Identifier>maxNumberOfDatasets</ows:Identifier>
-  <wps:Data>
-  <wps:LiteralData>',datasets,'</wps:LiteralData>
-  </wps:Data>
-  </wps:Input>
-  </wps:DataInputs>
-  <wps:ResponseForm>
-  <wps:RawDataOutput>
-  <ows:Identifier>result</ows:Identifier>
-  <ows:Identifier>sessionInfo</ows:Identifier>
-  <ows:Identifier>warnings</ows:Identifier>
-  </wps:RawDataOutput>
-  </wps:ResponseForm>
-  </wps:Execute>')
+xml_request <- paste0('<wps:Execute service="WPS" version="1.0.0" mode="sync"
+                      xmlns:wps="http://www.opengis.net/wps/1.0.0" 
+                      xmlns:ows="http://www.opengis.net/ows/1.1" 
+                      xmlns:xlink="http://www.w3.org/1999/xlink" 
+                      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+                      xsi:schemaLocation="http://www.opengis.net/wps/1.0.0 
+                      http://schemas.opengis.net/wps/1.0.0/wpsExecute_request.xsd">
+                      
+                      <ows:Identifier>org.n52.wps.server.r.colabis.dwd.radar.data.process</ows:Identifier>
+                      
+                      <wps:DataInputs>
+                      <wps:Input>
+                      <ows:Identifier>features</ows:Identifier>
+                      <wps:Reference xlink:href="',station,'" mimeType="application/x-zipped-shp"></wps:Reference>
+                      </wps:Input>
+                      
+                      <wps:Input>
+                      <ows:Identifier>product</ows:Identifier>
+                      <wps:Data>
+                      <wps:LiteralData>RX</wps:LiteralData>
+                      </wps:Data>
+                      </wps:Input>
+                      
+                      <wps:Input>
+                      <ows:Identifier>maxNumberOfDatasets</ows:Identifier>
+                      <wps:Data>
+                      <wps:LiteralData>',datasets,'</wps:LiteralData>
+                      </wps:Data>
+                      </wps:Input>
+                      
+                      </wps:DataInputs>
+                      
+                      <wps:ResponseForm>
+                      <wps:ResponseDocument storeExecuteResponse="true">
+                      <wps:Output asReference="true">
+                      <ows:Identifier>result</ows:Identifier>
+                      <ows:Identifier>sessionInfo</ows:Identifier>
+                      <ows:Identifier>warnings</ows:Identifier>
+                      </wps:Output>
+                      </wps:ResponseDocument>
+                      </wps:ResponseForm>
+                      
+                      </wps:Execute>')
 header <- c(Connection="close",
             'Content-Type'="application/xml",
             'Content-length'=nchar(xml_request))
-response <- try(getURL(url = url,
-                       postfields = xml_request,
-                       httpheader = header,
-                       verbose = TRUE))
+response <- getURL(url = url,
+                   postfields = xml_request,
+                   httpheader = header,
+                   verbose = TRUE)
+
+status_location <- grep("statusLocation=.*", unlist(strsplit(response,">")), value=TRUE)
+status_location <- grep("statusLocation=.*", unlist(strsplit(gsub('\"','',status_location)," ")), value=TRUE)
+status_location <- gsub("statusLocation=", "", status_location)
+status <- getURL(status_location)
+start_process_time <- Sys.time()
+
+# Status-Abfrage wiederholen bis Prozess abgeschlossen ist
+# oder <timeout> ueberschritten wird
+while(length(grep("ProcessSucceeded", status)) < 1){
+  status <- getURL(status_location)
+  if((Sys.time()-start_process_time) > timeout) break
+}
+
+if(length(grep("ProcessSucceeded", status)) < 1){
+  # Request nicht erfolgreich
+  rm(response)
+} else {
+  # Request erfolgreich, Daten werden abgefragt
+    output_location <- grep("wps:Reference.*", unlist(strsplit(gsub('\"','',status),"<")), value=TRUE)
+    output_location <- gsub("wps:Reference mimeType=text/csv href=", "", output_location)
+    output_location <- gsub("/>", "", output_location)
+    response <- getURL(output_location)
+}
 
 
 
@@ -151,7 +184,8 @@ if(!exists("response") | nrow(rain_data)==0) {
   
   # Text fuer Demo-Log
   if(!exists("response")){
-    demo_message <- "DEMO\nRaindata request failed"
+    demo_message <- paste0("DEMO\nRaindata request failed (Timeout: ",
+                           as.character(timeout),attr(timeout,"units"),")")
   }
   if(nrow(rain_data)==0){
     demo_message <- "DEMO\nNo rain values for requested period"
