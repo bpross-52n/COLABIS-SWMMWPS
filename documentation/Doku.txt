@@ -25,11 +25,14 @@ DOKU - SWMM-File erstellen (WPS1_Simulation) und auslesen (WPS2_Auslesen) mit R
 
 
 WPS1_Simulation: R-Skript anpassen -> siehe auch Abschnitt 'Anzupassende Variablen' oben im Skript
-- wps.res: Dateinamen der inp-Files in Resources-Ordner eintragen (2daysInt.inp, 9-15aug.dat)
+- wps.res: Dateinamen der inp-Files in Resources-Ordner eintragen (z.B. 2daysInt.inp, 9-15aug.dat)
 - swmm_path: SWMM-Installationspfad
+- inp: Name des inp-Files (SWMM-Project) wie im recources-directory, z.B. "2daysInt" (ohne Extension)
 - out_path: Pfad zum Ordner, in dem die binäre Output-Datei (.out) und ein Log-File (demo_log.txt) gespeichert werden (= Input für WPS2)
 - station: URL zu Shapefile mit Position der Regenstation (analog zu http://geoprocessing.demo.52north.org:8080/data/sample-points-wgs84.zip)
-Bemerkung1: Abfragen der Regenwerte für längere Zeiträume dauern sehr lange und können evtl. zu einem Time-Out-Error in R bei der Abfrage des RADOLAN-Dienstes bzw. des WPS (org.n52.wps.server.r.colabis.dwd.radar.data.process) durch getURL() führen. Falls das passiert, wird die Simulation mit dem Demo-Regen ausgeführt und eine entsprechende Info im Log-File (demo_log.txt) gespeichert.
+- demo_rainfile: Name der Regendatei mit Beispieldaten wie im recources-directory, z.B. "9-15aug.dat" (mit Extension)
+- timeout: Maximale Zeitspanne, um auf Antwort von RADOLAN-WPS zu warten
+Bemerkung1: Abfragen der Regenwerte für längere Zeiträume dauern sehr lange, ~ 5 Minuten pro abgefragten Tag (= 288 datasets). Die maximale Dauer wird mit der Variable 'timeout' beschraenkt (s.o.). Falls die angegebene Zeit überschritten wird, wird die Simulation mit dem Demo-Regen ausgeführt und eine entsprechende Info im Log-File (demo_log.txt) gespeichert.
 Bemerkung2: Falls im abgefragten Zeitraum keine Regendaten vorhanden sind, wird ebenfalls der Demo-Regen verwendet und eine entsprechende Info im Log-File (demo_log.txt) gespeichert.
 Bemerkung3: Der Zeitraum des Demo-Regens wird an den angefragten Zeitraum angepasst, sodass das Simulationsergebnis 'aktuell' ist.
 Bemerkung4: Der Name der Regenstation (rain gauge) wird automatisch aus dem .inp-File ausgelesen. Es darf nur eine einzige Regenstation vorhanden sein.
@@ -37,7 +40,8 @@ Bemerkung5: Es wird nur noch 1 inp-File verwendet; das Straßenreinigungsinterval
 
 
 WPS2_Auslesen: R-Skript anpassen -> siehe auch Abschnitt 'Anzupassende Variablen' oben im Skript
-- wps.res: Dateiname des (original) inp-File in Resources-Ordner eintragen (2daysInt.inp)
+- wps.res: Dateiname des (original) inp-File in Resources-Ordner eintragen (z.B. 2daysInt.inp)
 - inp_path: Pfad zum Ordner, in dem die binäre Output-Datei (.out) und das Log-File (demo_log.txt) gespeichert wurden (= Output von WPS1)
+- binary: Name der .out-Datei (= Output von WPS1)
 Bemerkung1: Die Codes für das Auslesen der Schadstoffe werden automatisch aus dem inp-File erstellt.
 Bemerkung2: Die Namen und Koordinaten aller Knoten (junctions, outfalls) werden automatisch aus dem inp-File ausgelesen. Die Koordinaten werden in WGS84 (EPSG 4326) umgerechnet.
