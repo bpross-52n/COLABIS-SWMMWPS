@@ -54,7 +54,8 @@ inp_name <- raw_inp[grep("[RAINGAGES]", raw_inp, fixed=T)
 station_name <- unlist(strsplit(inp_name[4],split=" +"))[7]
 
 
-# Regendaten abrufen (RADOLAN-WPS)
+# 1. Regendaten abrufen (RADOLAN-WPS) bzw. Demo-Regen anpassen ----
+
 url <- "http://colabis.dev.52north.org/wps/WebProcessingService"
 xml_request <- paste0('<wps:Execute service="WPS" version="1.0.0" mode="sync"
                       xmlns:wps="http://www.opengis.net/wps/1.0.0" 
@@ -116,15 +117,22 @@ start_process_time <- Sys.time()
 # Status-Abfrage wiederholen bis Prozess abgeschlossen ist
 # oder <timeout> ueberschritten wird
 while(length(grep("ProcessSucceeded", status)) < 1){
-  status <- getURL(status_location)
-  if((Sys.time()-start_process_time) > timeout) break
+  status <- try(getURL(status_location))
+  if((Sys.time()-start_process_time) > timeout){break}
 }
 
 if(length(grep("ProcessSucceeded", status)) < 1){
-  # Request nicht erfolgreich
+  
+  # Request nicht erfolgreich, Ergebnis loeschen
   rm(response)
+  
+  # Text fuer Demo-Log
+  demo_message <- paste0("DEMO\nRaindata request failed (Timeout: ",
+                         as.character(timeout),attr(timeout,"units"),")")
+  
 } else {
-  # Request erfolgreich, Daten werden abgefragt
+  
+  # Request erfolgreich, Ergebnis wird gespeichert
     output_location <- grep("wps:Reference.*", unlist(strsplit(gsub('\"','',status),"<")), value=TRUE)
     output_location <- gsub("wps:Reference mimeType=text/csv href=", "", output_location)
     output_location <- gsub("/>", "", output_location)
@@ -132,9 +140,8 @@ if(length(grep("ProcessSucceeded", status)) < 1){
 }
 
 
-
-# Request erfolgreich + Regen in abgefragtem Zeitraum
-# -> Simulation mit aktuellen Regendaten
+# Request erfolgreich
+# -> Regendaten werden weiterverarbeitet
 
 if(exists("response")){
   
@@ -156,6 +163,7 @@ if(exists("response")){
   rain_data <- rain_data[-which(rain_data[,7]==0),]
   
   if(nrow(rain_data)>0){
+    # Regendaten speichern
     
     # Text fuer Demo-Log
     demo_message <- "NODEMO\nRaindata request successfull"
@@ -171,6 +179,14 @@ if(exists("response")){
     write.table(rain_data, rain_file,
                 row.names=F, col.names=F, quote=F)
     
+  } else {
+    # kein Regen in abgefragtem Zeitraum
+    
+    # Text fuer Demo-Log
+    demo_message <- "DEMO\nNo rain values for requested period"
+    
+    # Ergebnis loeschen
+    rm(response)
   }
 
 }
@@ -178,19 +194,10 @@ if(exists("response")){
 
 
 # Request nicht erfolgreich oder kein Regen in abgefragtem Zeitraum
-# -> Simualtion mit demo-Regen
+# -> Demo-Regendaten werden angepasst
 
-if(!exists("response") | nrow(rain_data)==0) {
-  
-  # Text fuer Demo-Log
-  if(!exists("response")){
-    demo_message <- paste0("DEMO\nRaindata request failed (Timeout: ",
-                           as.character(timeout),attr(timeout,"units"),")")
-  }
-  if(nrow(rain_data)==0){
-    demo_message <- "DEMO\nNo rain values for requested period"
-  }
-  
+if(!exists("response")) {
+
   # Demo-Regen einlesen
   rain_data <- read.table(demo_rain_file)
   rain_data <- rain_data[-which(rain_data[,7]==0),]
@@ -229,6 +236,7 @@ if(!exists("response") | nrow(rain_data)==0) {
 }
 
 
+# 2. Simulation ----
 
 # Regendatei im .inp-File aendern (entsprechend Dateiname oben)
 p1 <- paste0("FILE       \".*\"    ", station_name)
