@@ -8,31 +8,40 @@ DOKU - SWMM-File erstellen (WPS1_Simulation) und auslesen (WPS2_Auslesen) mit R
 	RHOME = C:\Program Files\R\R-x.y.z
 	PATH = [...];%RHOME%\bin\x64=
 - weitere benötigte Bibliotheken in R, ggf. über install.packages() installieren:
+	RCurl (Version 1.95-4.10)
 	swmmr (Version 0.7.0),
 	zoo (Version 1.8-0)
+	sf (Version 0.6-0)
+	jsonlite (Version 1.5)
 
 - Apache Tomcat (Version 8.5.20)
 - WPS als war-file in Tomcat integrieren (Version 3.6.1, aktuell: 3.6.2 -> https://github.com/52North/WPS/releases/tag/v3.6.2)
 - GeoTools package ebenfalls downloaden, entpacken und jar-files (.../WEB-INF/lib) kopieren (...\Tomcat 8.5\webapps\wps\WEB-INF\lib)
 - siehe auch: https://52north.org/software/software-projects/wps/#quickStart
 
-- in R/resources Ordner SWMM anlegen, SWMM-Inputdatei(en -> mit/ohne Straßenreinigung) und Beispielregen-Datei dorthin kopieren
-	...\webapps\wps\R\resources\SWMM\<NameDesSWMMProjektes>.inp
-	...\webapps\wps\R\resources\SWMM\<NameDesDemoRegens>.dat
-Bemerkung: Die inp-File(s) sollten an den Demo-Regen angepasst sein, d. h. Dateiname und Simulationszeitraum müssen übereinstimmen. (Für einen aktuell abgerufenen Regen wird das inp-File automatisch manipuliert.)
+- in R/resources Ordner SWMM anlegen, SWMM-Inputdatei und Demo-Regen-Datei dorthin kopieren
+	...\webapps\wps\R\resources\SWMM\<NameDesSWMMProjektes>.inp (2daysInt.inp)
+	...\webapps\wps\R\resources\SWMM\<NameDesDemoRegens>.dat (9-15aug.dat)
 
 
-
-WPS1_Simulation: R-Skript anpassen -> siehe Abschnitt 'Anzupassende Variablen' oben im Skript
-- wps.res: Dateinamen der inp-Files in Resources-Ordner eintragen
+WPS1_Simulation: R-Skript anpassen -> siehe auch Abschnitt 'Anzupassende Variablen' oben im Skript
+- wps.res: Dateinamen der inp-Files in Resources-Ordner eintragen (z.B. 2daysInt.inp, 9-15aug.dat)
 - swmm_path: SWMM-Installationspfad
-- out_path: Pfad zum Ordner, in dem die binäre Output-Datei (.out) gespeichert wird (= Input für WPS2)
+- inp: Name des inp-Files (SWMM-Project) wie im recources-directory, z.B. "2daysInt" (ohne Extension)
+- out_path: Pfad zum Ordner, in dem die binäre Output-Datei (.out) und ein Log-File (demo_log.txt) gespeichert werden (= Input für WPS2)
 - station: URL zu Shapefile mit Position der Regenstation (analog zu http://geoprocessing.demo.52north.org:8080/data/sample-points-wgs84.zip)
-Bemerkung1: Abfragen der Regenwerte für längere Zeiträume dauern sehr lange (ca. 5 Minuten), >21 Stunden können zu einem Time-Out-Error in R bei der Abfrage des RADOLAN-Dienstes bzw. des WPS (org.n52.wps.server.r.colabis.dwd.radar.data.process) durch getURL() führen.
-Bemerkung2: Der Name der Regenstation (rain gauge) wird automatisch aus dem .inp-File ausgelesen. Es darf nur eine einzige Regenstation vorhanden sein.
+- demo_rainfile: Name der Regendatei mit Beispieldaten wie im recources-directory, z.B. "9-15aug.dat" (mit Extension)
+- timeout: Maximale Zeitspanne, um auf Antwort von RADOLAN-WPS zu warten
+Bemerkung1: Abfragen der Regenwerte für längere Zeiträume dauern sehr lange, ~ 5 Minuten pro abgefragten Tag (= 288 datasets). Die maximale Dauer wird mit der Variable 'timeout' beschraenkt (s.o.). Falls die angegebene Zeit überschritten wird, wird die Simulation mit dem Demo-Regen ausgeführt und eine entsprechende Info im Log-File (demo_log.txt) gespeichert.
+Bemerkung2: Falls im abgefragten Zeitraum keine Regendaten vorhanden sind, wird ebenfalls der Demo-Regen verwendet und eine entsprechende Info im Log-File (demo_log.txt) gespeichert.
+Bemerkung3: Der Zeitraum des Demo-Regens wird an den angefragten Zeitraum angepasst, sodass das Simulationsergebnis 'aktuell' ist.
+Bemerkung4: Der Name der Regenstation (rain gauge) wird automatisch aus dem .inp-File ausgelesen. Es darf nur eine einzige Regenstation vorhanden sein.
+Bemerkung5: Es wird nur noch 1 inp-File verwendet; das Straßenreinigungsintervall wird als Input übergeben (sweep), d. h. 0 = keine Straßenreinigung.
 
 
-WPS2_Simulation: R-Skript anpassen -> siehe Abschnitt 'Anzupassende Variablen' oben im Skript
-- inp_path: Pfad zum Ordner, in dem die binäre Output-Datei (.out) gespeichert wurde (= Output von WPS1)
-Bemerkung1: Ggf. müssen auch die Codes für die Schadstoffe angepasst werden. Um herauszufinden, welche Schadstoffe im .out-File vorhanden sind und wie die entsprechenden Codes heißen, kann der Befehl read_out(file=<NameDesOutFile>, iType=1, object_name=<NameEinesBeliebigenKnoten>) ohne Angabe des Parameters vIndex ausgeführt werden. Es erscheint dann in der Konsole eine Liste mit den verfügbaren Codes für die Variablen, die an diesem Knoten abgefragt werden können. Die hier (im interaktiven Modus) angegebenen Codes sind aber leider nicht die gleichen, die als Parameter (vIndex bzw. var) der Funktion übergeben werden, sondern sind immer um 1 größer (d.h. um die korrekten Codes für den Funktionsaufruf zu erhalten muss -1 gerechnet werden). Die Codes können dann entsprechend in die if-Anweisungen und die Beschreibung des Inputs (wps.in) "pollutant" eingefügt werden.
-Bemerkung2: Die Namen aller Knoten (junctions, outfalls) werden automatisch aus dem inp-File ausgelesen.
+WPS2_Auslesen: R-Skript anpassen -> siehe auch Abschnitt 'Anzupassende Variablen' oben im Skript
+- wps.res: Dateiname des (original) inp-File in Resources-Ordner eintragen (z.B. 2daysInt.inp)
+- inp_path: Pfad zum Ordner, in dem die binäre Output-Datei (.out) und das Log-File (demo_log.txt) gespeichert wurden (= Output von WPS1)
+- binary: Name der .out-Datei (= Output von WPS1)
+Bemerkung1: Die Codes für das Auslesen der Schadstoffe werden automatisch aus dem inp-File erstellt.
+Bemerkung2: Die Namen und Koordinaten aller Knoten (junctions, outfalls) werden automatisch aus dem inp-File ausgelesen. Die Koordinaten werden in WGS84 (EPSG 4326) umgerechnet.

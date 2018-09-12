@@ -10,21 +10,15 @@ http://schemas.opengis.net/wps/1.0.0/wpsExecute_request.xsd">
 
 	<wps:DataInputs>
 		<wps:Input>
-			<ows:Identifier>inp</ows:Identifier>
+			<ows:Identifier>days</ows:Identifier>
 			<wps:Data>
-				<wps:LiteralData>SWMM_project_original</wps:LiteralData>
+				<wps:LiteralData>1</wps:LiteralData>
 			</wps:Data>
 		</wps:Input>
 		<wps:Input>
-			<ows:Identifier>time</ows:Identifier>
+			<ows:Identifier>sweep</ows:Identifier>
 			<wps:Data>
 				<wps:LiteralData>5</wps:LiteralData>
-			</wps:Data>
-		</wps:Input>
-		<wps:Input>
-			<ows:Identifier>demo</ows:Identifier>
-			<wps:Data>
-				<wps:LiteralData>TRUE</wps:LiteralData>
 			</wps:Data>
 		</wps:Input>
 	</wps:DataInputs>

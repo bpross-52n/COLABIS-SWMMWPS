@@ -2,12 +2,8 @@
 # abstract = liest von COLABIS_WPS1_Simulation erstellte out-Datei aus;
 
 
-# wps.res: SWMM/SWMM_project_original.inp;
+# wps.res: SWMM/2daysInt.inp;
 
-
-# wps.in: id = binary, type = string,
-# title = Name des out-File mit Dateiendung,
-# abstract = Ergebnis der SWMM-Simulation (WPS1) mit/ohne Strassenreinigung;
 
 # wps.in: id = method, type = string,
 # title = Ausgabemodus (SingleNode / MinMax / AllNodes),
@@ -19,27 +15,23 @@
 
 # wps.in: id = pollutant, type = string,
 # title = Name des Schadstoffes,
-# abstract = zum Beispiel CSB / NH4N;
+# abstract = Auswahl des Schadstoffes (pb / zn / cd / cu / PAH);
 
 
 # Variablen fuer Testlauf in RStudio
 # wps.off;
-  binary <- "eschdorf_v6_20141208_new.out"
-  method <- "MinMax"
-  name <- "5"
-  pollutant <- "CSB"
+  method <- "SingleNode"
+  name <- "36Q173"
+  pollutant <- "pb"
 # wps.on;
 
 
 
 # Anzupassende Variablen (siehe Doku) ---------------------------------------------
-# Pfad zur .out-Datei (von WPS1_Simulation erstellt)
+# Pfad zur .out-Datei (= out_path in WPS1)
 inp_path <- "C:/WPS-support-files/swmm-output"
-# Namen der Schadstoffe in Codes umwandeln
-# Ausfuehren von read_out() ohne Angabe des Parameters vIndex zeigt verfuegbare Elemente
-#read_out(file=binary, iType=1, object_name=name)
-if(pollutant == "CSB"){var <- 7-1}
-if(pollutant == "NH4N"){var <- 8-1}
+# Name der .out-Datei (von WPS1 erstellt)
+binary <- "2daysInt_new.out"
 # ---------------------------------------------------------------------------------
 
 
@@ -47,6 +39,13 @@ if(pollutant == "NH4N"){var <- 8-1}
 # Bibliotheken
 library(swmmr)
 library(zoo)
+library(sf)
+library(jsonlite)
+
+
+# Demo-Status aus Demo-Log abfragen
+raw_log <- readLines(paste0(inp_path,"/demo_log.txt"))
+demo <- ifelse(raw_log[1]=="DEMO", TRUE, FALSE)
 
 
 #Dateiendung entfernen, damit die vom Simulations-Prozess erzeugte _new-Datei gefunden wird
@@ -54,73 +53,157 @@ binary_filename <- strsplit(binary, "[.]")[[1]][1]
 # vollstaendiger Pfad zu .out-File
 binary <- paste0(inp_path,"/",binary)
 
+# Codierung zur Abfrage von Schadstoffen
+raw_inp <- readLines(paste0(unlist(strsplit(binary_filename,
+                                            "_new"))[1], ".inp"))
+pollutants_inp <- raw_inp[grep("[POLLUTANTS]",raw_inp, fixed=T)
+                          :grep("[LANDUSES]",raw_inp, fixed=T)]
+pollutants <- rep(NA, length(pollutants_inp)-5)
+for(p in 4:length(pollutants_inp)-2){
+  pollutants[p-3] <- unlist(strsplit(pollutants_inp[p]," +"))[1]
+}
+var <- which(pollutants==pollutant)+5
+
+
+# Namen + Koordinaten der Knoten aus inp-File extrahieren
+nodes_inp <- raw_inp[grep("[COORDINATES]",raw_inp, fixed=T)
+                     :grep("[VERTICES]",raw_inp, fixed=T)]
+nodes_info <- data.frame(name=rep(NA, length(nodes_inp)-5),
+                         title=rep(NA, length(nodes_inp)-5),
+                         x=rep(NA, length(nodes_inp)-5),
+                         y=rep(NA, length(nodes_inp)-5))
+for(n in 4:(length(nodes_inp)-2)){
+  nodes_info$name[n-3] <- unlist(strsplit(nodes_inp[n]," +"))[1]
+  nodes_info$title[n-3] <- paste0("node",nodes_info$name[n-3])
+  nodes_info$x[n-3] <- unlist(strsplit(nodes_inp[n]," +"))[2]
+  nodes_info$y[n-3] <- unlist(strsplit(nodes_inp[n]," +"))[3]
+}
+nodes_info$x <- as.numeric(nodes_info$x)
+nodes_info$y <- as.numeric(nodes_info$y)
+
+# Koordinaten umrechnen: UTM Zone 33N (EPSG 32633) -> WGS84 (EPSG 4326)
+nodes_sp <- st_as_sf(nodes_info, coords=c("x","y"), crs=32633)
+nodes_wgs <- st_transform(nodes_sp, crs=4326)
+for(n in 1:nrow(nodes_info)){
+  nodes_info$x[n] <- nodes_wgs$geometry[[n]][1] # longitude
+  nodes_info$y[n] <- nodes_wgs$geometry[[n]][2] # latitude
+}
+
+
 if(method == "SingleNode"){
   
   # .out-Datei auslesen fuer 1 Knoten (name)
   # und ausgewaehlten Schadstoff (pollutant bzw. var)
   list <- read_out(file=binary, iType=1, vIndex=var, object_name=name)
-  title <- names(list) # Name des Knoten (vgl. name)
-  var_name <- names(list[[title]]) # Name des Schadstoffes (vgl. pollutant)
   xts <- list[[1]][[1]] # xts-Objekt mit Schadstoffwerten
+  data_obj <- toJSON(data.frame(time=time(xts),
+                                value=coredata(xts)))
+  json_str <- sprintf(
+'{
+  "name" : "%s",
+  "x" : "%s",
+  "y" : "%s",
+  "phenomenon" : "%s",
+  "demo_data" : %s,
+  "data" : %s
+}',
+    nodes_info$title[nodes_info$name==name],
+    nodes_info$x[nodes_info$name==name],
+    nodes_info$y[nodes_info$name==name],
+    pollutant,
+    tolower(demo),
+    data_obj)
   
-  # Ausgabe: csv-Datei erstellen
-  table <- paste0(title, "_", var_name, ".csv") # Name des Output-File
-  write.zoo(xts, file=table, sep=",",dec=".")
-  
+  # Ausgabe: json-Datei erstellen
+  table <- paste0(nodes_info$title[nodes_info$name==name], "_",
+                  pollutant, ".json") # Name des Output-File
+  writeLines(json_str, table)
+
 }
 
 
 if (method == "MinMax" || method == "AllNodes"){
-  
-  # Namen der Knoten aus inp-File extrahieren
-  raw_inp <- readLines(paste0(unlist(strsplit(binary_filename,
-                                              "_new"))[1], ".inp"))
-  junction_names <- raw_inp[grep("[JUNCTIONS]",raw_inp, fixed=T)
-                            :grep("[OUTFALLS]",raw_inp, fixed=T)]
-  outfall_names <- raw_inp[grep("[OUTFALLS]",raw_inp, fixed=T)
-                           :grep("[CONDUITS]",raw_inp, fixed=T)]
-  junctions <- character()
-  for(j in 4:(length(junction_names)-2)){
-    junctions[j-3] <- unlist(strsplit(junction_names[j]," +"))[1]
-  }
-  outfalls <- character()
-  for(o in 4:(length(outfall_names)-2)){
-    outfalls[o-3] <- unlist(strsplit(outfall_names[o]," +"))[1]
-  }
-  node_names <- c(junctions,outfalls)
-  
-  # .out-Datei auslesen fuer alle Knoten (node_names)
+
+  # .out-Datei auslesen fuer alle Knoten (nodes_info$name)
   # und ausgewaehlten Schadstoff (pollutant bzw. var)
-  list <- read_out(file=binary, iType=1, object_name=node_names, vIndex=var)
-  title <- names(list) # Namen aller Knoten (vgl. node_names)
-  var_name <- names(list[[title[1]]]) # Name des Schadstoffes (vgl. pollutant)
+  list <- read_out(file=binary, iType=1,
+                   object_name=nodes_info$name, vIndex=var)
   xts <- list[[1]][[1]] # Zusammenfuehren der xts-Objekte mit Schadstoffwerten
-  for(i in 2:length(node_names)){
+  for(i in 2:length(nodes_info$title)){
     xts <- merge(xts, list[[i]][[1]])
   }
-  colnames(xts) <- node_names
+  colnames(xts) <- nodes_info$title
   
-  if(method == "MinMax"){
-    min_max <- range(xts[,1])
-    for(i in 2:ncol(xts)){
-      min_max <- cbind(min_max, range(xts[,i])) # Spalten = Knoten, Zeilen = Min/Max
-    }
-    # Ausgabe: csv-Datei erstellen
-    table <- paste0("AllNodes_", var_name, "_MinMax.csv") # Name des Output-File
-    write.table(min_max, file=table, sep=",", dec=".",
-                row.names=c("Min", "Max"), col.names=node_names)
-  }
   
   if(method == "AllNodes"){
-    # Ausgabe: csv-Datei erstellen
-    table <- paste0("AllNodes_", var_name, ".csv") # Name des Output-File
-    write.zoo(xts, file=table, sep=",",dec=".") # Spalten = Knoten, Zeilen = Zeitschritte
+    
+    json_str <- sprintf('{
+  "demo_data": %s,
+  "data":
+  [\n', tolower(demo))
+    for(n in 1:ncol(xts)){
+      data_obj <- toJSON(data.frame(time=time(xts[,n]),
+                                    value=as.numeric(coredata(xts[,n]))))
+      obj <- sprintf(
+'    {
+       "name" : "%s",
+       "x" : "%s",
+       "y" : "%s",
+       "phenomenon" : "%s",
+       "data" : %s
+    }',
+        colnames(xts[,n]),
+        nodes_info$x[nodes_info$title==colnames(xts[,n])],
+        nodes_info$y[nodes_info$title==colnames(xts[,n])],
+        pollutant,
+        data_obj)
+      json_str <- paste0(json_str, "\n", obj)
+    }
+    json_str <- paste0(json_str, "\n]\n}")
+    
+    # Ausgabe: json-Datei erstellen
+    table <- paste0("AllNodes_", pollutant, ".json") # Name des Output-File
+    writeLines(json_str, table)
+
   }
   
+  
+  if(method == "MinMax"){
+    
+    json_str <- sprintf('{
+  "demo_data":%s,
+  "data":
+  [\n', tolower(demo))
+    for(n in 1:ncol(xts)){
+      obj <- sprintf(
+'  {
+    "name" : "%s",
+    "x" : "%s",
+    "y" : "%s",
+    "phenomenon" : "%s",
+    "min" : %s,
+    "max" :%s
+  }',
+        colnames(xts[,n]),
+        nodes_info$x[nodes_info$title==colnames(xts[,n])],
+        nodes_info$y[nodes_info$title==colnames(xts[,n])],
+        pollutant,
+        min(coredata(xts[,n])),
+        max(coredata(xts[,n])))
+      json_str <- ifelse(n != 1, paste0(json_str, ",\n", obj),
+                         paste0(json_str, "\n", obj))
+    }
+    json_str <- paste0(json_str, '\n  ]\n}')
+    
+    # Ausgabe: json-Datei erstellen
+    table <- paste0("AllNodes_", pollutant, "_MinMax.json") # Name des Output-File
+    writeLines(json_str, table)
+  }
+
 }
 
 
 
-# wps.out: id = table, type = text,
-# title = Ausgabetabelle (csv),
+# wps.out: id = result, type = text,
+# title = Schadstoffwerte (json),
 # abstract = Werte des/der ausgewaehlten Knoten fuer ausgewaehlten Schadstoff;
